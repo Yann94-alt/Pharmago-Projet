@@ -36,7 +36,7 @@ export default function Login() {
       }
 
       if (loggedUser?.role === 'patient') {
-        navigate('/Accueil')
+        navigate('/')
       } else if (loggedUser?.role === 'pharmacie') {
         navigate('/pharmacie/dashboard')
       }
