@@ -13,57 +13,112 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 class AuthController extends Controller
 {
     
-    public function register(Request $request)
-    {
-        $request->validate([
-            'nom'            => 'required|string|max:255',
-            'prenom'         => 'required|string|max:255',
-            'email'          => 'required|email|unique:users,email',
-            'password'       => 'required|string|min:6|confirmed',
-            'telephone'      => 'nullable|string|max:20',
-            'role'           => 'required|in:patient,pharmacie',
-            'date_naissance' => 'nullable|date',
-        ], [
-            'nom.required'            => 'Le nom est obligatoire.',
-            'nom.string'              => 'Le nom doit être une chaîne de caractères.',
-            'nom.max'                 => 'Le nom ne doit pas dépasser 255 caractères.',
-            'prenom.required'         => 'Le prénom est obligatoire.',
-            'prenom.string'           => 'Le prénom doit être une chaîne de caractères.',
-            'prenom.max'              => 'Le prénom ne doit pas dépasser 255 caractères.',
-            'email.required'          => 'L\'adresse e-mail est obligatoire.',
-            'email.email'             => 'L\'adresse e-mail doit être valide.',
-            'email.unique'            => 'Cette adresse e-mail est déjà utilisée.',
-            'password.required'       => 'Le mot de passe est obligatoire.',
-            'password.string'         => 'Le mot de passe doit être une chaîne de caractères.',
-            'password.min'            => 'Le mot de passe doit contenir au moins 6 caractères.',
-            'password.confirmed'      => 'La confirmation du mot de passe ne correspond pas.',
-            'telephone.string'        => 'Le numéro de téléphone doit être une chaîne de caractères.',
-            'telephone.max'           => 'Le numéro de téléphone ne doit pas dépasser 20 caractères.',
-            'role.required'           => 'Le rôle est obligatoire.',
-            'role.in'                 => 'Le rôle sélectionné n\'est pas valide (patient ou pharmacie uniquement).',
-            'date_naissance.date'     => 'La date de naissance doit être une date valide.',
-        ]);
+  public function register(Request $request)
+{
+    $request->validate([
+        'nom'            => 'required|string|max:255',
+        'prenom'         => 'required|string|max:255',
+        'email'          => 'required|email|unique:users,email',
+        'password'       => 'required|string|min:6|confirmed',
+        'telephone'      => 'nullable|string|max:20',
+        'role'           => 'required|in:patient,pharmacie',
+        'date_naissance' => 'nullable|date',
 
-        $user = User::create([
-            'nom'            => $request->nom,
-            'prenom'         => $request->prenom,
-            'email'          => $request->email,
-            'password'       => Hash::make($request->password),
-            'telephone'      => $request->telephone,
-            'role'           => $request->role,
-            'date_naissance' => $request->date_naissance,
-        ]);
+        // Documents du patient
+        'carte_identite' => 'required_if:role,patient|file|mimes:jpg,jpeg,png,pdf|max:5120',
+        'carte_assurance' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
 
-      
-        $token = JWTAuth::fromUser($user);
+    ], [
+        'nom.required' => 'Le nom est obligatoire.',
+        'nom.string' => 'Le nom doit être une chaîne de caractères.',
+        'nom.max' => 'Le nom ne doit pas dépasser 255 caractères.',
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Inscription réussie.',
-            'token'   => $token,
-            'user'    => $user
-        ], 201);
+        'prenom.required' => 'Le prénom est obligatoire.',
+        'prenom.string' => 'Le prénom doit être une chaîne de caractères.',
+        'prenom.max' => 'Le prénom ne doit pas dépasser 255 caractères.',
+
+        'email.required' => 'L\'adresse e-mail est obligatoire.',
+        'email.email' => 'L\'adresse e-mail doit être valide.',
+        'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
+
+        'password.required' => 'Le mot de passe est obligatoire.',
+        'password.string' => 'Le mot de passe doit être une chaîne de caractères.',
+        'password.min' => 'Le mot de passe doit contenir au moins 6 caractères.',
+        'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
+
+        'telephone.string' => 'Le numéro de téléphone doit être une chaîne de caractères.',
+        'telephone.max' => 'Le numéro de téléphone ne doit pas dépasser 20 caractères.',
+
+        'role.required' => 'Le rôle est obligatoire.',
+        'role.in' => 'Le rôle sélectionné n\'est pas valide.',
+
+        'date_naissance.date' => 'La date de naissance doit être une date valide.',
+
+        'carte_identite.required_if' =>
+            'La pièce d\'identité est obligatoire pour un patient.',
+        'carte_identite.file' =>
+            'La pièce d\'identité doit être un fichier.',
+        'carte_identite.mimes' =>
+            'La pièce d\'identité doit être une image ou un PDF.',
+        'carte_identite.max' =>
+            'La pièce d\'identité ne doit pas dépasser 5 Mo.',
+
+        'carte_assurance.file' =>
+            'La carte d\'assurance doit être un fichier.',
+        'carte_assurance.mimes' =>
+            'La carte d\'assurance doit être une image ou un PDF.',
+        'carte_assurance.max' =>
+            'La carte d\'assurance ne doit pas dépasser 5 Mo.',
+    ]);
+
+
+    // Création de l'utilisateur
+    $user = User::create([
+        'nom'            => $request->nom,
+        'prenom'         => $request->prenom,
+        'email'          => $request->email,
+        'password'       => Hash::make($request->password),
+        'telephone'      => $request->telephone,
+        'role'           => $request->role,
+        'date_naissance' => $request->date_naissance,
+    ]);
+
+
+    // Documents uniquement pour les patients
+    if ($request->role === 'patient') {
+
+        // Pièce d'identité obligatoire
+        $carteIdentite = $request
+            ->file('carte_identite')
+            ->store('cartes_identite', 'local');
+
+        $user->carte_identite = $carteIdentite;
+
+
+        // Carte d'assurance facultative
+        if ($request->hasFile('carte_assurance')) {
+
+            $carteAssurance = $request
+                ->file('carte_assurance')
+                ->store('cartes_assurance', 'local');
+
+            $user->carte_assurance = $carteAssurance;
+        }
+
+        $user->save();
     }
+
+
+    $token = JWTAuth::fromUser($user);
+
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Inscription réussie.',
+        'token'   => $token,
+        'user'    => $user
+    ], 201);
+}
     public function login(Request $request)
     {
         $request->validate([

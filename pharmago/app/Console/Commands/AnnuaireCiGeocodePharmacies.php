@@ -9,29 +9,17 @@ use Illuminate\Support\Facades\Http;
 class AnnuaireCiGeocodePharmacies extends Command
 {
     protected $signature = 'pharmacies:annuaire-geocode {--limit= : Nombre maximum de pharmacies}';
-
     protected $description = 'Récupère les coordonnées des pharmacies depuis AnnuaireCI';
-
-
-
     public function handle()
     {
         $limit = $this->option('limit');
-
-
         $query = GardePharmacie::where(function ($q) {
             $q->whereNull('latitude')
               ->orWhereNull('longitude');
         });
-
-
-
         if ($limit) {
             $query->limit((int)$limit);
         }
-
-
-
         $pharmacies = $query->get();
 
 
@@ -311,9 +299,6 @@ class AnnuaireCiGeocodePharmacies extends Command
                     isset($data['geo']['longitude'])
 
                 ) {
-
-
-
                     return [
 
                         'latitude' =>

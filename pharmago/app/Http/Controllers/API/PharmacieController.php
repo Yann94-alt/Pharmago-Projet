@@ -15,12 +15,7 @@ class PharmacieController extends Controller
  */
 public function nearby(Request $request)
 {
-    /*
-    |--------------------------------------------------------------------------
-    | Vérification GPS utilisateur
-    |--------------------------------------------------------------------------
-    */
-
+   
     if (
         !is_numeric($request->lat) ||
         !is_numeric($request->lng)
@@ -33,20 +28,10 @@ public function nearby(Request $request)
 
     }
 
-
-
     $lat = (float) $request->lat;
     $lng = (float) $request->lng;
 
     $rayon = (float) $request->get('rayon', 20);
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Pharmacies de garde actuellement valides
-    |--------------------------------------------------------------------------
-    */
 
     $today = now()->format('Y-m-d');
 
@@ -65,15 +50,6 @@ public function nearby(Request $request)
             $today
         );
 
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Filtre ville optionnel
-    |--------------------------------------------------------------------------
-    */
-
     if ($request->filled('ville')) {
 
         $query->where(
@@ -83,16 +59,6 @@ public function nearby(Request $request)
         );
 
     }
-
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Calcul distance GPS
-    |--------------------------------------------------------------------------
-    */
-
     $query
     ->whereNotNull('latitude')
     ->whereNotNull('longitude')
@@ -355,4 +321,200 @@ public function nearby(Request $request)
     });
 
     return response()->json($pharmacies);
+}
+/**
+ * Pharmacies partenaires proches du patient
+ *
+ * Route :
+ * /api/pharmacies/nearby-partners
+ */
+public function nearbyPartners(Request $request)
+{
+    /*
+    |--------------------------------------------------------------------------
+    | Vérification GPS
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !is_numeric($request->lat) ||
+        !is_numeric($request->lng)
+    ) {
+        return response()->json([
+            'message' => 'Position GPS utilisateur obligatoire',
+            'data' => []
+        ], 400);
+    }
+
+
+    $lat = (float) $request->lat;
+    $lng = (float) $request->lng;
+
+    /*
+    | Rayon par défaut : 20 km
+    */
+    $rayon = (float) $request->get('rayon', 20);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Recherche des pharmacies partenaires
+    |--------------------------------------------------------------------------
+    */
+
+    $query = Pharmacies::query()
+
+        /*
+        | Seulement les pharmacies actives
+        */
+        ->where('is_active', true)
+
+        /*
+        | GPS obligatoire
+        */
+        ->whereNotNull('latitude')
+        ->whereNotNull('longitude');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filtre ville optionnel
+    |--------------------------------------------------------------------------
+    */
+
+    if ($request->filled('ville')) {
+
+        $query->where(
+            'ville',
+            'like',
+            '%' . $request->ville . '%'
+        );
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Calcul de la distance
+    |--------------------------------------------------------------------------
+    */
+
+    $query->selectRaw("
+        pharmacies.*,
+
+        (
+            6371 *
+            acos(
+                cos(radians(?))
+                *
+                cos(radians(latitude))
+                *
+                cos(
+                    radians(longitude)
+                    -
+                    radians(?)
+                )
+                +
+                sin(radians(?))
+                *
+                sin(radians(latitude))
+            )
+        ) AS distance
+
+    ", [
+        $lat,
+        $lng,
+        $lat
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Seulement les pharmacies dans le rayon
+    |--------------------------------------------------------------------------
+    */
+
+    $query->having(
+        'distance',
+        '<=',
+        $rayon
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Plus proche en premier
+    |--------------------------------------------------------------------------
+    */
+
+    $query->orderBy(
+        'distance',
+        'asc'
+    );
+
+
+    $pharmacies = $query->get();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Informations supplémentaires
+    |--------------------------------------------------------------------------
+    */
+
+    $pharmacies->transform(function ($pharmacie) {
+
+        $pharmacie->distance = round(
+            (float) $pharmacie->distance,
+            2
+        );
+
+
+        /*
+        | Google Maps
+        */
+
+        if (
+            $pharmacie->latitude !== null &&
+            $pharmacie->longitude !== null
+        ) {
+
+            $pharmacie->map_url =
+                "https://www.google.com/maps/dir/?api=1&destination="
+                . $pharmacie->latitude
+                . ","
+                . $pharmacie->longitude;
+
+        } else {
+
+            $pharmacie->map_url = null;
+
+        }
+
+
+        return $pharmacie;
+
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Réponse API
+    |--------------------------------------------------------------------------
+    */
+
+    return response()->json([
+
+        'user_position' => [
+            'latitude' => $lat,
+            'longitude' => $lng
+        ],
+
+        'rayon_km' => $rayon,
+
+        'total' => $pharmacies->count(),
+
+        'pharmacies' => $pharmacies
+
+    ]);
 }}

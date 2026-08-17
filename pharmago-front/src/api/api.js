@@ -34,16 +34,33 @@ export const invitePharmacie = (data) =>
   );
 
 
+export const getAdminDashboard = () =>
+  api.get(
+    "/admin/dashboard"
+  );
+
+
 export const verifyInvitation = (token) =>
   api.get(
     `/admin/invitation/${token}`
   );
 
+// Récupérer la liste des utilisateurs
+export const getAdminUsers = () =>
+  api.get(
+    "/admin/users"
+  );
 
 
+// Supprimer un utilisateur
+export const deleteAdminUser = (id) =>
+  api.delete(
+    `/admin/users/${id}`
+  );
 /* ==========================
    PHARMACIES
 ========================== */
+
 
 
 export const registerPharmacy = (token, data) =>
@@ -51,7 +68,6 @@ export const registerPharmacy = (token, data) =>
     `/pharmacie/register/${token}`,
     data
   );
-
 
 export const getPharmacies = () =>
   api.get("/pharmacies");
@@ -74,6 +90,7 @@ export const searchPharmacies = (params) =>
   );
 
 
+// Pharmacies de garde proches
 export const getNearbyPharmacies = (params) =>
   api.get(
     "/pharmacies/nearby",
@@ -82,6 +99,15 @@ export const getNearbyPharmacies = (params) =>
     }
   );
 
+
+// Pharmacies partenaires proches
+export const getNearbyPartnerPharmacies = (params) =>
+  api.get(
+    "/pharmacies/nearby-partners",
+    {
+      params
+    }
+  );
 
 export const createPharmacie = (data) =>
   api.post(
@@ -158,6 +184,14 @@ export const createOrdonnance = (data) =>
 ========================== */
 
 
+export const getBeneficiaires = () => {
+  return api.get('/beneficiaires')
+}
+// Créer un bénéficiaire
+export const createBeneficiaire = (data) => {
+  return api.post('/beneficiaires', data)
+}
+
 export const getReservations = () =>
   api.get("/reservations");
 
@@ -192,37 +226,46 @@ export const envoyerPieceIdentite = (id, data) =>
 ========================== */
 
 
+// ===============================
+// RÉSERVATIONS PHARMACIE
+// ===============================
+
+// Récupérer toutes les réservations de la pharmacie connectée
 export const getPharmacieReservations = () =>
-  api.get(
-    "/pharmacies/reservations"
-  );
+  api.get('/pharmacies/reservations')
 
+// Récupérer une réservation précise
+export const getPharmacieReservation = (id) =>
+  api.get(`/pharmacies/reservations/${id}`)
 
-export const proposerReservation = (id, data) =>
+// Envoyer une proposition au patient
+export const analyserReservation = (id, data) =>
   api.post(
     `/pharmacies/reservations/${id}/proposition`,
     data
-  );
+  )
 
-
-
-/* ==========================
-   RESERVATIONS GENERAL
-========================== */
-
-
-export const updateReservationStatut = (id, data) =>
-  api.put(
-    `/reservations/${id}/statut`,
-    data
-  );
-
-
-export const confirmerReservation = (id, data = {}) =>
+// Confirmer une réservation après réception de la pièce d'identité
+export const confirmerReservation = (id, data) =>
   api.post(
-    `/reservations/${id}/confirmer`,
+    `/pharmacies/reservations/${id}/confirmer`,
     data
-  );
+  )
+
+// Modifier le statut de la réservation
+export const updateReservationStatut = (id, statut) =>
+  api.put(
+    `/pharmacies/reservations/${id}/statut`,
+    {
+      statut
+    }
+  )
+  // Récupérer les documents d'une réservation
+export const getReservationDocuments = async (reservationId) => {
+  return api.get(`/pharmacies/reservations/${reservationId}/documents`, {
+    responseType: 'blob',
+  })
+}
 
 
 

@@ -22,80 +22,64 @@ import ReservationDetail from './pages/ReservationDetail'
 import Notifications from './pages/Notifications'
 
 import PharmacyDashboard from './pages/PharmacyDashboard'
+import TraitementReservation from './pages/TraitementReservation' // <-- Import de la page de traitement
 
+import AdminDashboard from './pages/AdminDashboard'
 
 import QrScanner from './pages/QrScanner'
 
 import PatientDash from './pages/PatientDash'
 import CartePage from './pages/CartePage'
+import AdminPatients from './pages/AdminPatients'
 
 
 function Home() {
-
   const { isPharmacie } = useAuth()
 
   return isPharmacie 
       ? <PharmacyDashboard /> 
       : <Pharmacies />
-
 }
 
 
-
 export default function App() {
-
   return (
-
     <Routes>
-
 
       {/* =========================
           ROUTES PUBLIQUES
       ========================== */}
-
 
       <Route 
         path="/connexion" 
         element={<Login />} 
       />
 
-
       <Route 
         path="/inscription" 
         element={<Register />} 
       />
 
-
       {/* Inscription pharmacie par invitation */}
-
       <Route
         path="/pharmacie/register/:token"
         element={<PharmacyRegister />}
       />
 
-
-
       {/* Pages publiques */}
-
       <Route 
         path="/Accueil" 
         element={<PatientDash />} 
       />
-
 
       <Route 
         path="/carte" 
         element={<CartePage />} 
       />
 
-
-
-
-
       {/* =========================
-          DASHBOARD PHARMACIE
+          DASHBOARD PHARMACIE & ADMIN
       ========================== */}
-
 
       <Route
         path="/pharmacie/dashboard"
@@ -106,17 +90,30 @@ export default function App() {
         }
       />
 
-
+      <Route
+        path="/admin/patients"
+        element={
+          <PrivateRoute role="admin">
+            <AdminPatients />
+          </PrivateRoute>
+        }
+      />
+ 
+      <Route
+        path="/admin/dashboard"
+        element={
+            <PrivateRoute role="admin">
+                <AdminDashboard />
+            </PrivateRoute>
+        }
+      />
 
 
       {/* =========================
-          ESPACE PROTEGE
+          ESPACE PROTEGE (AVEC LAYOUT)
       ========================== */}
 
-
       <Route element={<Layout />}>
-
-
 
         <Route
           path="/"
@@ -127,8 +124,6 @@ export default function App() {
           }
         />
 
-
-
         <Route
           path="/pharmacies/:id"
           element={
@@ -137,8 +132,6 @@ export default function App() {
             </PrivateRoute>
           }
         />
-
-
 
         <Route
           path="/medicaments"
@@ -149,8 +142,6 @@ export default function App() {
           }
         />
 
-
-
         <Route
           path="/ordonnances"
           element={
@@ -159,8 +150,6 @@ export default function App() {
             </PrivateRoute>
           }
         />
-
-
 
         <Route
           path="/assurances"
@@ -171,8 +160,6 @@ export default function App() {
           }
         />
 
-
-
         <Route
           path="/reservations"
           element={
@@ -181,8 +168,6 @@ export default function App() {
             </PrivateRoute>
           }
         />
-
-
 
         <Route
           path="/reservations/:id"
@@ -193,7 +178,15 @@ export default function App() {
           }
         />
 
-
+        {/* Route Traitement de réservation / ordonnance */}
+        <Route
+          path="/TraitementReservation/:id"
+          element={
+            <PrivateRoute role="pharmacie">
+              <TraitementReservation />
+            </PrivateRoute>
+          }
+        />
 
         <Route
           path="/notifications"
@@ -204,17 +197,7 @@ export default function App() {
           }
         />
 
-
-
-        {/* Profil pharmacie */}
-
-      
-       
-
-
-
         {/* Scanner QR pharmacie */}
-
         <Route
           path="/scanner"
           element={
@@ -224,10 +207,7 @@ export default function App() {
           }
         />
 
-
-
       </Route>
-
 
 
       {/* =========================
@@ -243,9 +223,6 @@ export default function App() {
         }
       />
 
-
     </Routes>
-
   )
-
 }

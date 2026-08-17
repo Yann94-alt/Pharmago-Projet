@@ -10,9 +10,12 @@ import {
   FiCompass,
   FiShoppingBag,
   FiX,
-  FiUpload
+  FiUpload,
+  FiUser,
+  FiUsers,
+  FiArrowLeft
 } from 'react-icons/fi'
-import { getPharmacies, getNearbyPharmacies, createReservation } from '../api/api'
+import { getPharmacies, getNearbyPharmacies, createReservation, createBeneficiaire } from '../api/api'
 import Alert from '../components/Alert'
 import { usePharmacy } from "../context/PharmacyContext"
 import { captureLocation } from '../utils/geolocation'
@@ -35,12 +38,29 @@ export default function Pharmacies() {
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState('')
 
-  // États pour la gestion de la modale de réservation (pharmacie_id, ordonnance [file], note)
+  // États pour la gestion de la modale de réservation et des étapes
   const [selectedPharmacyForBooking, setSelectedPharmacyForBooking] = useState(null)
+  const [bookingStep, setBookingStep] = useState('who') // 'who', 'patient', 'beneficiary'
   const [bookingNote, setBookingNote] = useState('')
   const [bookingFile, setBookingFile] = useState(null)
+  const [bookingInsuranceFile, setBookingInsuranceFile] = useState(null)
+  const [beneficiaryNom, setBeneficiaryNom] = useState('')
+  const [beneficiaryPrenom, setBeneficiaryPrenom] = useState('')
   const [submittingBooking, setSubmittingBooking] = useState(false)
   const [bookingSuccess, setBookingSuccess] = useState('')
+
+  // Fermeture complète de la modale de réservation avec réinitialisation des états
+  const closeBookingModal = () => {
+    setSelectedPharmacyForBooking(null)
+    setBookingStep('who')
+    setBookingFile(null)
+    setBookingInsuranceFile(null)
+    setBookingNote('')
+    setBeneficiaryNom('')
+    setBeneficiaryPrenom('')
+    setBookingSuccess('')
+    setError('')
+  }
 
   // Redirection vers la carte interactive
   const handleOpenLocalMap = (e, pharmacie) => {
@@ -60,41 +80,227 @@ export default function Pharmacies() {
     e.preventDefault()
     e.stopPropagation()
     setSelectedPharmacyForBooking(pharmacie)
-    setBookingNote('')
+    setBookingStep('who')
     setBookingFile(null)
+    setBookingInsuranceFile(null)
+    setBookingNote('')
+    setBeneficiaryNom('')
+    setBeneficiaryPrenom('')
     setBookingSuccess('')
     setError('')
   }
 
-  // Soumettre la réservation avec FormData (car on envoie un fichier)
+  // Soumettre la réservation avec FormData selon l'étape active
   const handleSubmiReservation = async (e) => {
-    e.preventDefault()
-    if (!selectedPharmacyForBooking) return
+  e.preventDefault()
 
-    setSubmittingBooking(true)
-    setError('')
-    setBookingSuccess('')
+  if (!selectedPharmacyForBooking) return
 
-    try {
-      const formData = new FormData()
-      formData.append('pharmacie_id', selectedPharmacyForBooking.id)
-      if (bookingFile) formData.append('ordonnance', bookingFile)
-      if (bookingNote) formData.append('note', bookingNote)
+  // ============================
+  // VALIDATION
+  // ============================
 
-      await createReservation(formData)
-
-      setBookingSuccess('Votre ordonnance a bien été envoyée.')
-      setTimeout(() => {
-        setSelectedPharmacyForBooking(null)
-      }, 2000)
-    } catch (err) {
-      console.error("Erreur lors de la réservation :", err)
-      setError(err.response?.data?.message || 'Une erreur est survenue lors de l\'envoi de l\'ordonnance.')
-    } finally {
-      setSubmittingBooking(false)
+  if (bookingStep === 'patient') {
+    if (!bookingFile) {
+      setError('Veuillez joindre une ordonnance.')
+      return
     }
   }
 
+  if (bookingStep === 'beneficiary') {
+    if (!beneficiaryNom.trim() || !beneficiaryPrenom.trim()) {
+      setError('Veuillez renseigner le nom et le prénom du bénéficiaire.')
+      return
+    }
+
+    if (!bookingFile) {
+      setError('Veuillez joindre une ordonnance.')
+      return
+    }
+
+    if (!bookingInsuranceFile) {
+      setError("Veuillez joindre la carte d'assurance du bénéficiaire.")
+      return
+    }
+  }
+
+  setSubmittingBooking(true)
+  setError('')
+  setBookingSuccess('')
+
+  try {
+
+    // =====================================================
+    // CAS 1 : RÉSERVATION POUR LE PATIENT CONNECTÉ
+    // =====================================================
+
+    if (bookingStep === 'patient') {
+
+      const formData = new FormData()
+
+      formData.append(
+        'pharmacie_id',
+        selectedPharmacyForBooking.id
+      )
+
+      formData.append(
+        'ordonnance',
+        bookingFile
+      )
+
+      if (bookingNote.trim()) {
+        formData.append('note', bookingNote)
+      }
+
+      console.log('Envoi réservation patient')
+
+      await createReservation(formData)
+    }
+
+
+    // =====================================================
+    // CAS 2 : RÉSERVATION POUR UNE AUTRE PERSONNE
+    // =====================================================
+
+    else if (bookingStep === 'beneficiary') {
+
+      // -------------------------------------------------
+      // 1. CRÉER LE BÉNÉFICIAIRE
+      // -------------------------------------------------
+
+      const resBeneficiaire = await createBeneficiaire({
+        nom: beneficiaryNom.trim(),
+        prenom: beneficiaryPrenom.trim()
+      })
+
+      console.log(
+        'Réponse création bénéficiaire :',
+        resBeneficiaire.data
+      )
+
+      // Ton backend retourne :
+      //
+      // {
+      //   status: true,
+      //   message: "...",
+      //   data: {
+      //      id: 5,
+      //      user_id: 1,
+      //      nom: "...",
+      //      prenom: "..."
+      //   }
+      // }
+
+      const beneficiaryId =
+        resBeneficiaire.data?.data?.id
+
+      if (!beneficiaryId) {
+        console.error(
+          'Réponse bénéficiaire invalide :',
+          resBeneficiaire.data
+        )
+
+        throw new Error(
+          "Impossible de récupérer l'identifiant du bénéficiaire créé."
+        )
+      }
+
+      console.log(
+        'Bénéficiaire créé avec ID :',
+        beneficiaryId
+      )
+
+
+      // -------------------------------------------------
+      // 2. CRÉER LA RÉSERVATION
+      // -------------------------------------------------
+
+      const formData = new FormData()
+
+      formData.append(
+        'pharmacie_id',
+        selectedPharmacyForBooking.id
+      )
+
+      formData.append(
+        'beneficiaire_id',
+        beneficiaryId
+      )
+
+      formData.append(
+        'ordonnance',
+        bookingFile
+      )
+
+      formData.append(
+        'carte_assurance',
+        bookingInsuranceFile
+      )
+
+      if (bookingNote.trim()) {
+        formData.append(
+          'note',
+          bookingNote
+        )
+      }
+
+      console.log(
+        'Envoi réservation bénéficiaire :',
+        beneficiaryId
+      )
+
+      await createReservation(formData)
+    }
+
+
+    // =====================================================
+    // SUCCÈS
+    // =====================================================
+
+    setBookingSuccess(
+      'Votre ordonnance a bien été envoyée à la pharmacie.'
+    )
+
+    setTimeout(() => {
+      closeBookingModal()
+    }, 2000)
+
+  } catch (err) {
+
+    console.error(
+      'Erreur lors de la réservation :',
+      err
+    )
+
+    console.error(
+      'Réponse backend :',
+      err.response?.data
+    )
+
+    if (err.response?.data?.errors) {
+
+      const errorMessages =
+        Object.values(err.response.data.errors)
+          .flat()
+          .join(' ')
+
+      setError(errorMessages)
+
+    } else {
+
+      setError(
+        err.response?.data?.message ||
+        err.message ||
+        'Une erreur est survenue lors de la réservation.'
+      )
+    }
+
+  } finally {
+
+    setSubmittingBooking(false)
+
+  }
+}
   // Activer la géolocalisation utilisateur
   const requestLocation = useCallback(async () => {
     setLocating(true)
@@ -216,7 +422,7 @@ export default function Pharmacies() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-        {error && (
+        {error && activeTab !== 'proches' && !selectedPharmacyForBooking && (
           <div className="mb-6">
             <Alert type="error" onClose={() => setError('')}>
               {error}
@@ -234,7 +440,7 @@ export default function Pharmacies() {
                   : 'bg-transparent text-slate-600 hover:bg-slate-100/80'
               }`}
             >
-              <span>Pharmacies</span>
+              <span>Nos Pharmacies</span>
             </button>
 
             <button
@@ -368,17 +574,17 @@ export default function Pharmacies() {
         )}
       </div>
 
-      {/* Modale de Réservation (Ordonnance fichier + note) */}
+      {/* Modale de Réservation Multi-Étapes */}
       {selectedPharmacyForBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in fade-in zoom-in duration-200 my-auto">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
               <div>
                 <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Réservation</span>
                 <h3 className="text-lg font-black text-slate-900">{selectedPharmacyForBooking.nom}</h3>
               </div>
               <button
-                onClick={() => setSelectedPharmacyForBooking(null)}
+                onClick={closeBookingModal}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
               >
                 <FiX className="w-4 h-4" />
@@ -392,12 +598,89 @@ export default function Pharmacies() {
                 </div>
                 <p className="text-sm font-semibold text-emerald-700">{bookingSuccess}</p>
               </div>
+            ) : bookingStep === 'who' ? (
+              <div className="space-y-4 py-2">
+                <p className="text-sm font-bold text-slate-800 text-center mb-6">
+                  Pour qui souhaitez-vous réserver ?
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingStep('patient')
+                    setError('')
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/30 transition-all group text-left"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <FiUser className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">Pour moi</h4>
+                    <p className="text-xs text-slate-500">Utiliser mon profil personnel</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingStep('beneficiary')
+                    setError('')
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/30 transition-all group text-left"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors">
+                    <FiUsers className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 group-hover:text-teal-600 transition-colors">Pour une autre personne</h4>
+                    <p className="text-xs text-slate-500">Ajouter un bénéficiaire</p>
+                  </div>
+                </button>
+              </div>
             ) : (
               <form onSubmit={handleSubmiReservation} className="space-y-4">
                 {error && (
                   <Alert type="error" onClose={() => setError('')}>
                     {error}
                   </Alert>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-black text-slate-800">
+                    {bookingStep === 'patient' ? 'Réservation pour moi' : 'Réservation pour une autre personne'}
+                  </h4>
+                </div>
+
+                {bookingStep === 'beneficiary' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Nom <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={beneficiaryNom}
+                        onChange={(e) => setBeneficiaryNom(e.target.value)}
+                        placeholder="Nom du bénéficiaire"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Prénom <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={beneficiaryPrenom}
+                        onChange={(e) => setBeneficiaryPrenom(e.target.value)}
+                        placeholder="Prénom du bénéficiaire"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
                 )}
 
                 <div>
@@ -414,6 +697,22 @@ export default function Pharmacies() {
                   />
                 </div>
 
+                {bookingStep === 'beneficiary' && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <FiUpload className="w-3.5 h-3.5 text-teal-600" />
+                      Carte d'assurance (JPG, PNG, PDF - Max 5Mo) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="file"
+                      required
+                      accept="image/jpeg,image/png,image/jpg,application/pdf"
+                      onChange={(e) => setBookingInsuranceFile(e.target.files[0])}
+                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Note ou instructions (optionnel)</label>
                   <textarea
@@ -425,21 +724,37 @@ export default function Pharmacies() {
                   ></textarea>
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-3">
+                <div className="pt-2 flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => setSelectedPharmacyForBooking(null)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                    onClick={() => {
+                      setBookingStep('who')
+                      setError('')
+                    }}
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
                   >
-                    Annuler
+                    <FiArrowLeft className="w-3.5 h-3.5" />
+                    <span>Retour</span>
                   </button>
-                  <button
-                    type="submit"
-                    disabled={submittingBooking}
-                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
-                  >
-                    {submittingBooking ? 'Envoi en cours...' : 'Envoyer l\'ordonnance'}
-                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={closeBookingModal}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingBooking}
+                      className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
+                    >
+                      {submittingBooking 
+                        ? (bookingStep === 'beneficiary' ? 'Création en cours...' : 'Envoi en cours...') 
+                        : (bookingStep === 'beneficiary' ? 'Envoyer la réservation' : 'Envoyer l\'ordonnance')}
+                    </button>
+                  </div>
                 </div>
               </form>
             )}

@@ -19,19 +19,18 @@ class User extends Authenticatable implements JWTSubject
     |--------------------------------------------------------------------------
     */
     protected $fillable = [
-        'nom',
-        'prenom',
-        'email',
-        'password',
-        'telephone',
-        'role',
-        'date_naissance',
-        'lieu_naissance',
-        'photo',
-        'carte_identite',
-        'numero_assurance',
-    ];
-
+    'nom',
+    'prenom',
+    'email',
+    'password',
+    'telephone',
+    'role',
+    'date_naissance',
+    'photo',
+    'carte_identite',
+    'carte_assurance',
+    'is_active',
+];
     /*
     |--------------------------------------------------------------------------
     | Champs cachés
@@ -111,5 +110,9 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(notifications::class);
     }
+    public function beneficiaires()
+{
+    return $this->hasMany(Beneficiaire::class);
+}
     
 }

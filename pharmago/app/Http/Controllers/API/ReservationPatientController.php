@@ -6,87 +6,170 @@ use App\Models\Ordonnance;
 use App\Models\notifications;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\Beneficiaire;
+use Illuminate\Support\Facades\Storage;
+use App\Models\Assurance;
 
 class ReservationPatientController extends Controller
 {
-    public function store(Request $request)
-    {
-
-        $request->validate([
-
-            'pharmacie_id' => 'required|exists:pharmacies,id',
-
-            'assurance_id' => 'nullable|exists:assurances,id',
-
-            'ordonnance' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
-
-            'note' => 'nullable|string'
-
-        ]);
-        $cheminOrdonnance = $request
-            ->file('ordonnance')
-            ->store('ordonnances', 'local');
-        $ordonnance = Ordonnance::create([
-            'user_id' => $request->user()->id,
-            'fichier' => $cheminOrdonnance
-        ]);
-        $reservation = Reservation::create([
-
-            'user_id' => $request->user()->id,
-
-            'pharmacie_id' => $request->pharmacie_id,
-
-            'ordonnance_id' => $ordonnance->id,
-
-            'assurance_id' => $request->assurance_id,
-
-            'note' => $request->note,
-
-            'statut' => 'verification'
-
-        ]);
 
 
+public function documents(Request $request, Reservation $reservation)
+{
+    $user = $request->user();
 
-        // Notification pharmacie
-
-        notifications::create([
-
-            'user_id' => $reservation->pharmacie->user_id,
-
-            'titre' => 'Nouvelle ordonnance reçue',
-
-            'message' => 'Un patient a envoyé une ordonnance à vérifier.',
-
-            'type' => 'reservation',
-
-            'data' => json_encode([
-
-                'reservation_id' => $reservation->id
-
-            ])
-
-        ]);
-
-
-
+    if (
+        $user->role !== 'pharmacie' ||
+        $reservation->pharmacie_id !== $user->pharmacie?->id
+    ) {
         return response()->json([
+            'message' => 'Accès refusé.'
+        ], 403);
+    }
 
-            'status' => true,
+    $reservation->load('ordonnance');
 
-            'message' => 'Votre ordonnance a été envoyée à la pharmacie.',
+    return response()->json([
+        'status' => true,
 
-            'data' => $reservation->load([
+        'ordonnance' => $reservation->ordonnance
+            ? $reservation->ordonnance->fichier
+            : null,
 
-                'pharmacie',
-                'ordonnance',
-                'assurance'
+        'carte_assurance' => $reservation->carte_assurance,
 
-            ])
+        'carte_identite' => $reservation->carte_identite,
+    ]);
+}
 
-        ], 201);
+   public function store(Request $request)
+{
+    $request->validate([
+        'pharmacie_id' => 'required|exists:pharmacies,id',
 
-    }   
+        'beneficiaire_id' => 'nullable|exists:beneficiaires,id',
+
+        'ordonnance' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
+
+        'carte_assurance' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+
+        'note' => 'nullable|string',
+    ]);
+
+    $user = $request->user();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Vérifier le bénéficiaire
+    |--------------------------------------------------------------------------
+    */
+
+    if ($request->filled('beneficiaire_id')) {
+
+        $beneficiaire = Beneficiaire::where('id', $request->beneficiaire_id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$beneficiaire) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Ce bénéficiaire ne vous appartient pas.'
+            ], 403);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Upload ordonnance
+    |--------------------------------------------------------------------------
+    */
+
+    $cheminOrdonnance = $request
+        ->file('ordonnance')
+        ->store('ordonnances', 'local');
+
+    $ordonnance = Ordonnance::create([
+        'user_id' => $user->id,
+        'fichier' => $cheminOrdonnance
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Upload carte d'assurance
+    |--------------------------------------------------------------------------
+    */
+
+    $cheminCarteAssurance = null;
+
+    if ($request->hasFile('carte_assurance')) {
+
+        $cheminCarteAssurance = $request
+            ->file('carte_assurance')
+            ->store('cartes_assurance_reservations', 'local');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Création de la réservation
+    |--------------------------------------------------------------------------
+    */
+
+    $reservation = Reservation::create([
+        'user_id' => $user->id,
+
+        'beneficiaire_id' => $request->beneficiaire_id,
+
+        'pharmacie_id' => $request->pharmacie_id,
+
+        'ordonnance_id' => $ordonnance->id,
+
+        'carte_assurance' => $cheminCarteAssurance,
+
+        'note' => $request->note,
+
+        'statut' => 'verification'
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notification pharmacie
+    |--------------------------------------------------------------------------
+    */
+
+    notifications::create([
+        'user_id' => $reservation->pharmacie->user_id,
+
+        'titre' => 'Nouvelle ordonnance reçue',
+
+        'message' => $reservation->beneficiaire_id
+            ? 'Une ordonnance pour un bénéficiaire a été reçue.'
+            : 'Un patient a envoyé une ordonnance à vérifier.',
+
+        'type' => 'reservation',
+
+        'data' => json_encode([
+            'reservation_id' => $reservation->id
+        ])
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Réponse
+    |--------------------------------------------------------------------------
+    */
+
+    return response()->json([
+        'status' => true,
+
+        'message' => 'Votre ordonnance a été envoyée à la pharmacie.',
+
+        'data' => $reservation->load([
+            'pharmacie',
+            'ordonnance',
+            'beneficiaire'
+        ])
+    ], 201);
+}
     public function accepterProposition(Request $request, Reservation $reservation)
 {
     $user = $request->user();

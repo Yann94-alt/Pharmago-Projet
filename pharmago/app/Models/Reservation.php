@@ -7,9 +7,18 @@ use Illuminate\Database\Eloquent\Model;
 class Reservation extends Model
 {
      protected $fillable = [
-        'user_id', 'pharmacie_id', 'ordonnance_id', 'assurance_id',
-        'statut', 'carte_identite', 'note', 'date_souhaitee',
-    ];
+    'user_id',
+    'beneficiaire_id',
+    'pharmacie_id',
+    'ordonnance_id',
+    'assurance_id',
+    'carte_assurance',
+    'ordonnance_id',
+    'statut',
+    'carte_identite',
+    'note',
+    'date_souhaitee',
+];
     protected $casts = [
         'date_souhaitee' => 'datetime',
     ];
@@ -17,6 +26,10 @@ class Reservation extends Model
     {
         return $this->belongsTo(User::class);
     }
+    public function beneficiaire()
+{
+    return $this->belongsTo(Beneficiaire::class);
+}
     public function pharmacie()
     {
         return $this->belongsTo(Pharmacies::class);

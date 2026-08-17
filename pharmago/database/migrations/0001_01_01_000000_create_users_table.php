@@ -18,24 +18,18 @@ return new class extends Migration
     $table->string('prenom');
     $table->string('email')->unique();
     $table->string('telephone')->nullable();
-
-    // ✅ UNE SEULE FOIS
     $table->enum('role', ['patient', 'admin', 'pharmacie'])
           ->default('patient');
-
     $table->date('date_naissance')->nullable();
     $table->string('sexe')->nullable();
     $table->string('photo')->nullable();
     $table->string('carte_identite')->nullable();
     $table->string('num_assurance')->nullable();
-
     $table->timestamp('email_verified_at')->nullable();
     $table->string('password');
-
     $table->rememberToken();
     $table->timestamps();
 });
-
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
