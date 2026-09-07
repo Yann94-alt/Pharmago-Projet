@@ -126,10 +126,11 @@ export default function Navbar() {
   }
 
   // =========================================================
-  // LIENS PATIENT DESKTOP
+  // LIENS PUBLICS
+  // Ces liens sont visibles même sans connexion
   // =========================================================
 
-  const patientLinks = (
+  const publicLinks = (
     <>
       <NavLink
         to="/"
@@ -147,6 +148,16 @@ export default function Navbar() {
         <FiPackage className="w-4 h-4" />
         <span>Médicaments</span>
       </NavLink>
+    </>
+  )
+
+  // =========================================================
+  // LIENS PATIENT DESKTOP
+  // =========================================================
+
+  const patientLinks = (
+    <>
+      {publicLinks}
 
       <NavLink
         to="/notifications"
@@ -163,10 +174,9 @@ export default function Navbar() {
   // =========================================================
 
   const pharmacieLinks = (
-     <NavLink
+    <NavLink
       to="/pharmacie/historique"
-      className={mobileLinkClass}
-      onClick={() => setOpen(false)}
+      className={linkClass}
     >
       <FiClock className="w-4 h-4" />
       <span>Historique</span>
@@ -179,16 +189,38 @@ export default function Navbar() {
 
   const adminLinks = (
     <>
-      
-      
+      <NavLink
+        to="/medecins"
+        className={linkClass}
+      >
+        <FiUsers className="w-4 h-4" />
+        <span>Médecins</span>
+      </NavLink>
+
+      <NavLink
+        to="/medicaments"
+        className={linkClass}
+      >
+        <FiPackage className="w-4 h-4" />
+        <span>Médicaments</span>
+      </NavLink>
+
+      <NavLink
+        to="/"
+        end
+        className={linkClass}
+      >
+        <FiMapPin className="w-4 h-4" />
+        <span>Pharmacies</span>
+      </NavLink>
     </>
   )
 
   // =========================================================
-  // LIENS PATIENT MOBILE
+  // LIENS PUBLICS MOBILE
   // =========================================================
 
-  const mobilePatientLinks = (
+  const mobilePublicLinks = (
     <>
       <NavLink
         to="/"
@@ -208,6 +240,16 @@ export default function Navbar() {
         <FiPackage className="w-4 h-4" />
         <span>Médicaments</span>
       </NavLink>
+    </>
+  )
+
+  // =========================================================
+  // LIENS PATIENT MOBILE
+  // =========================================================
+
+  const mobilePatientLinks = (
+    <>
+      {mobilePublicLinks}
 
       <NavLink
         to="/notifications"
@@ -299,17 +341,17 @@ export default function Navbar() {
             NAVIGATION DESKTOP
         ====================================================== */}
 
-        {isAuthenticated && (
-          <nav className="hidden items-center gap-1 xl:gap-2 lg:flex">
+        <nav className="hidden items-center gap-1 xl:gap-2 lg:flex">
 
-            {isAdmin
+          {!isAuthenticated
+            ? publicLinks
+            : isAdmin
               ? adminLinks
               : isPharmacie
                 ? pharmacieLinks
                 : patientLinks}
 
-          </nav>
-        )}
+        </nav>
 
         {/* =====================================================
             PARTIE DROITE DESKTOP
@@ -322,7 +364,7 @@ export default function Navbar() {
             <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
 
               {/* =================================================
-                  PROFIL + MENU
+                  PROFIL
               ================================================== */}
 
               <div className="relative">
@@ -345,16 +387,14 @@ export default function Navbar() {
 
                   <FiChevronDown
                     className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
-                      profileOpen
-                        ? 'rotate-180'
-                        : ''
+                      profileOpen ? 'rotate-180' : ''
                     }`}
                   />
 
                 </button>
 
                 {/* =================================================
-                    MENU DROPDOWN
+                    MENU PROFIL
                 ================================================== */}
 
                 {profileOpen && (
@@ -368,9 +408,7 @@ export default function Navbar() {
                       <div className="flex items-center gap-3">
 
                         <div className="w-12 h-12 rounded-xl bg-white border border-emerald-100 text-[#16A34A] flex items-center justify-center shadow-sm">
-
                           <FiUser className="w-6 h-6" />
-
                         </div>
 
                         <div className="min-w-0">
@@ -392,8 +430,6 @@ export default function Navbar() {
                     {/* INFORMATIONS */}
 
                     <div className="p-4 space-y-1">
-
-                      {/* Email */}
 
                       {user?.email && (
                         <div className="flex items-start gap-3 px-2.5 py-2.5 rounded-xl hover:bg-slate-50">
@@ -417,8 +453,6 @@ export default function Navbar() {
                         </div>
                       )}
 
-                      {/* Téléphone */}
-
                       {user?.telephone && (
                         <div className="flex items-start gap-3 px-2.5 py-2.5 rounded-xl hover:bg-slate-50">
 
@@ -441,8 +475,6 @@ export default function Navbar() {
                         </div>
                       )}
 
-                      {/* Adresse */}
-
                       {user?.adresse && (
                         <div className="flex items-start gap-3 px-2.5 py-2.5 rounded-xl hover:bg-slate-50">
 
@@ -464,8 +496,6 @@ export default function Navbar() {
 
                         </div>
                       )}
-
-                      {/* Ville */}
 
                       {user?.ville && (
                         <div className="flex items-start gap-3 px-2.5 py-2.5 rounded-xl hover:bg-slate-50">
@@ -491,7 +521,7 @@ export default function Navbar() {
 
                     </div>
 
-                    {/* SUPPRIMER LE COMPTE */}
+                    {/* SUPPRESSION */}
 
                     <button
                       type="button"
@@ -533,6 +563,10 @@ export default function Navbar() {
             </div>
 
           ) : (
+
+            /* =================================================
+               VISITEUR
+            ================================================== */
 
             <div className="flex items-center gap-2">
 
@@ -594,9 +628,7 @@ export default function Navbar() {
                 <div className="flex items-center gap-3 mb-4">
 
                   <div className="w-11 h-11 rounded-xl bg-white border border-emerald-100 text-[#16A34A] flex items-center justify-center shadow-sm">
-
                     <FiUser className="w-5 h-5" />
-
                   </div>
 
                   <div className="min-w-0">
@@ -616,8 +648,6 @@ export default function Navbar() {
                 {/* INFOS */}
 
                 <div className="space-y-2.5">
-
-                  {/* Email */}
 
                   {user?.email && (
                     <div className="flex items-center gap-3 bg-white/70 rounded-xl p-2.5">
@@ -641,8 +671,6 @@ export default function Navbar() {
                     </div>
                   )}
 
-                  {/* Téléphone */}
-
                   {user?.telephone && (
                     <div className="flex items-center gap-3 bg-white/70 rounded-xl p-2.5">
 
@@ -665,8 +693,6 @@ export default function Navbar() {
                     </div>
                   )}
 
-                  {/* Adresse */}
-
                   {user?.adresse && (
                     <div className="flex items-center gap-3 bg-white/70 rounded-xl p-2.5">
 
@@ -688,8 +714,6 @@ export default function Navbar() {
 
                     </div>
                   )}
-
-                  {/* Ville */}
 
                   {user?.ville && (
                     <div className="flex items-center gap-3 bg-white/70 rounded-xl p-2.5">
@@ -718,7 +742,7 @@ export default function Navbar() {
               </div>
 
               {/* =================================================
-                  NAVIGATION MOBILE
+                  NAVIGATION MOBILE CONNECTÉ
               ================================================== */}
 
               <div className="space-y-1">
@@ -731,9 +755,7 @@ export default function Navbar() {
 
               </div>
 
-              {/* =================================================
-                  SUPPRESSION DU COMPTE
-              ================================================== */}
+              {/* SUPPRESSION */}
 
               <button
                 type="button"
@@ -749,9 +771,7 @@ export default function Navbar() {
 
               </button>
 
-              {/* =================================================
-                  DECONNEXION
-              ================================================== */}
+              {/* DECONNEXION */}
 
               <div className="pt-2 border-t border-slate-100">
 
@@ -774,23 +794,41 @@ export default function Navbar() {
 
           ) : (
 
-            <div className="flex flex-col gap-2 pt-1">
+            /* =================================================
+               VISITEUR MOBILE
+            ================================================== */
 
-              <NavLink
-                to="/connexion"
-                className="w-full text-center rounded-xl py-3 text-sm font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100"
-                onClick={() => setOpen(false)}
-              >
-                Connexion
-              </NavLink>
+            <div className="space-y-3">
 
-              <NavLink
-                to="/inscription"
-                className="w-full text-center rounded-xl bg-[#16A34A] py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-                onClick={() => setOpen(false)}
-              >
-                Créer un compte
-              </NavLink>
+              {/* NAVIGATION PUBLIQUE */}
+
+              <div className="space-y-1">
+
+                {mobilePublicLinks}
+
+              </div>
+
+              {/* AUTHENTIFICATION */}
+
+              <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+
+                <NavLink
+                  to="/connexion"
+                  className="w-full text-center rounded-xl py-3 text-sm font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100"
+                  onClick={() => setOpen(false)}
+                >
+                  Connexion
+                </NavLink>
+
+                <NavLink
+                  to="/inscription"
+                  className="w-full text-center rounded-xl bg-[#16A34A] py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                  onClick={() => setOpen(false)}
+                >
+                  Créer un compte
+                </NavLink>
+
+              </div>
 
             </div>
 

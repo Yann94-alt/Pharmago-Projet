@@ -87,7 +87,7 @@ const ReservationDetail = lazy(
 )
 
 const Notifications = lazy(
-  () => import('./pages/Notifications')
+  () => import('./pages/Notifications')   
 )
 
 
@@ -169,14 +169,16 @@ function PageLoader() {
 */
 
 function Home() {
-
   const {
+    isAuthenticated,
     isPharmacie
   } = useAuth()
 
-  return isPharmacie
-    ? <PharmacyDashboard />
-    : <Pharmacies />
+  if (isAuthenticated && isPharmacie) {
+    return <PharmacyDashboard />
+  }
+
+  return <Pharmacies />
 }
 
 
@@ -247,9 +249,7 @@ export default function App() {
           <Route
             path="/"
             element={
-              <PrivateRoute>
                 <Home />
-              </PrivateRoute>
             }
           />
 
@@ -330,15 +330,11 @@ export default function App() {
               </PrivateRoute>
             }
           />
+<Route
+  path="/medicaments"
+  element={<Medicaments />}
+/>
 
-          <Route
-            path="/medicaments"
-            element={
-              <PrivateRoute role="patient">
-                <Medicaments />
-              </PrivateRoute>
-            }
-          />
 
           <Route
             path="/ordonnances"

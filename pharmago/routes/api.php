@@ -462,7 +462,7 @@ Route::get(
             'store'
         ]
     );
-    Route::get('/medicaments', [MedicamentController::class, 'index']);
+   
  
  
 });
