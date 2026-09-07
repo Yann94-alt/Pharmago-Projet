@@ -9,12 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PharmacyInvitationMail;
-
+use Illuminate\Support\Facades\Hash;
 class AdminController extends Controller
 {
-    /**
-     * Vérifier que l'utilisateur connecté est administrateur
-     */
     private function checkAdmin(Request $request)
     {
         if (!$request->user() || $request->user()->role !== 'admin') {
@@ -27,12 +24,6 @@ class AdminController extends Controller
         return null;
     }
 
-
-    /**
-     * Dashboard administrateur
-     *
-     * Retourne les statistiques générales de l'application.
-     */
     public function dashboard(Request $request)
 {
     $adminCheck = $this->checkAdmin($request);
@@ -40,10 +31,6 @@ class AdminController extends Controller
     if ($adminCheck) {
         return $adminCheck;
     }
-
-    // =========================
-    // UTILISATEURS
-    // =========================
 
     $totalUsers = User::count();
 
@@ -53,17 +40,12 @@ class AdminController extends Controller
 
     $totalPharmacies = User::where('role', 'pharmacie')->count();
 
-    // =========================
-    // UTILISATEURS ACTIFS
-    // =========================
+    
 
     $activeUsers = User::where('is_active', true)->count();
 
     $inactiveUsers = User::where('is_active', false)->count();
 
-    // =========================
-    // INVITATIONS
-    // =========================
 
     $totalInvitations = PharmacyInvitation::count();
 
@@ -78,9 +60,7 @@ class AdminController extends Controller
         ->where('expires_at', '<=', now())
         ->count();
 
-    // =========================
-    // RÉPONSE
-    // =========================
+    
 
     return response()->json([
         'status' => 'success',
@@ -110,12 +90,9 @@ class AdminController extends Controller
         ]
     ], 200);
 }
-    /**
-     * Créer et envoyer une invitation pharmacie
-     */
+   
     public function invitePharmacie(Request $request)
     {
-        // Vérification admin
         $adminCheck = $this->checkAdmin($request);
 
         if ($adminCheck) {
@@ -130,49 +107,21 @@ class AdminController extends Controller
             'email.unique' => 'Une invitation existe déjà pour cet email.'
         ]);
         $token = Str::random(64);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Création de l'invitation
-        |--------------------------------------------------------------------------
-        */
-
         $invitation = PharmacyInvitation::create([
 
             'email' => $request->email,
 
             'token' => $token,
-
             'role' => 'pharmacie',
-
-            'expires_at' => now()->addDays(7),
-
+              'expires_at' => now()->addMinutes(10),
             'created_by' => $request->user()->id,
 
         ]);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Lien React
-        |--------------------------------------------------------------------------
-        */
-
-        $link = "http://192.168.1.151:5173/pharmacie/register/" . $token;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Envoi du mail
-        |--------------------------------------------------------------------------
-        */
-
+        $link = "https://unserialised-inartificial-rosamond.ngrok-free.dev/pharmacie/register/" . $token;
         Mail::to($invitation->email)
             ->send(
                 new PharmacyInvitationMail($link)
             );
-
         return response()->json([
 
             'status' => 'success',
@@ -189,45 +138,41 @@ class AdminController extends Controller
 
         ], 201);
     }
-    public function verifyInvitation($token)
-    {
-        $invitation = PharmacyInvitation::where('token', $token)
-            ->first();
+   public function verifyInvitation($token)
+{
+    $invitation = PharmacyInvitation::where('token', $token)
+        ->first();
 
-
-        if (!$invitation) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Lien invalide.'
-            ], 404);
-        }
-        if ($invitation->used_at) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Lien déjà utilisé.'
-            ], 400);
-        }
-        if ($invitation->expires_at < now()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Lien expiré.'
-            ], 400);
-        }
-
-
+    if (!$invitation) {
         return response()->json([
-
-            'status' => 'success',
-
-            'message' => 'Lien valide.',
-
-            'email' => $invitation->email
-
-        ], 200);
+            'status' => 'error',
+            'message' => 'Lien invalide.'
+        ], 404);
     }
-    /**
- * Liste de tous les utilisateurs
- */
+
+    if ($invitation->used_at) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Lien déjà utilisé.'
+        ], 400);
+    }
+
+    if (
+        $invitation->expires_at &&
+        $invitation->expires_at->isPast()
+    ) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Lien expiré.'
+        ], 410);
+    }
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Lien valide.',
+        'email' => $invitation->email
+    ], 200);
+}
 public function users(Request $request)
 {
     $adminCheck = $this->checkAdmin($request);
@@ -290,4 +235,57 @@ public function deleteUser(Request $request, $id)
         'message' => 'Utilisateur supprimé avec succès.'
     ], 200);
 }
+/**
+ * Créer un nouvel administrateur
+ */
+public function createAdmin(Request $request)
+{
+    // Vérifier que l'utilisateur connecté est admin
+    $adminCheck = $this->checkAdmin($request);
+
+    if ($adminCheck) {
+        return $adminCheck;
+    }
+
+    // Validation des données
+    $request->validate([
+        'nom' => 'required|string|max:255',
+        'prenom' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email',
+        'password' => 'required|string|min:8|confirmed',
+    ], [
+        'nom.required' => 'Le nom est obligatoire.',
+        'prenom.required' => 'Le prénom est obligatoire.',
+        'email.required' => 'L\'email est obligatoire.',
+        'email.email' => 'L\'email doit être valide.',
+        'email.unique' => 'Un utilisateur existe déjà avec cet email.',
+        'password.required' => 'Le mot de passe est obligatoire.',
+        'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
+        'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
+    ]);
+
+    // Création du nouvel administrateur
+    $admin = User::create([
+        'nom' => $request->nom,
+        'prenom' => $request->prenom,
+        'email' => $request->email,
+        'password' => Hash::make($request->password),
+         'role' => 'admin',
+        'is_active' => true,
+    ]);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Administrateur créé avec succès.',
+        'data' => [
+            'id' => $admin->id,
+            'nom' => $admin->nom,
+            'prenom' => $admin->prenom,
+            'email' => $admin->email,
+            'role' => $admin->role,
+            'is_active' => $admin->is_active,
+        ]
+    ], 201);
+}
+
 }

@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
   }
 
   const login = async (email, password) => {
-  const { data } = await api.post('/login', { email, password })
+  const { data } = await api.post('/connexion', { email, password })
 
   localStorage.setItem('pharmago_token', data.token)
   setToken(data.token)
@@ -32,7 +32,7 @@ export function AuthProvider({ children }) {
 }
 
   const register = async (payload) => {
-    const { data } = await api.post('/register', payload)
+    const { data } = await api.post('/inscription', payload)
     persist(data.token, data.user)
     return data.user
   }
@@ -74,6 +74,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!token,
     isPatient: user?.role === 'patient',
     isPharmacie: user?.role === 'pharmacie',
+    isAdmin: user?.role === 'admin',
     loading,
     login,
     register,

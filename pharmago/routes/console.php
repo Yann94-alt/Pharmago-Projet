@@ -4,6 +4,12 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
+/*
+|--------------------------------------------------------------------------
+| Commande de test Laravel
+|--------------------------------------------------------------------------
+*/
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
@@ -11,41 +17,47 @@ Artisan::command('inspire', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Pharmacies de garde
+| PHARMACIES DE GARDE
 |--------------------------------------------------------------------------
 |
-| Tous les samedis à 00h00 :
-| récupération du nouveau planning.
+| Chaque samedi à 00h00 :
+| 1. Récupération du nouveau planning
 |
 */
 
 Schedule::command('pharmacies:scrape-garde')
-    ->weeklyOn(6, '00:00');
+    ->weeklyOn(6, '00:00')
+    ->withoutOverlapping();
 
 
 /*
 |--------------------------------------------------------------------------
-| Géocodage
+| GEOCODAGE OPENSTREETMAP
 |--------------------------------------------------------------------------
 |
-| Tous les samedis à 01h00 :
-| récupération des coordonnées GPS
-| des nouvelles pharmacies.
+| Chaque samedi à 01h00 :
+| géocodage des nouvelles pharmacies.
 |
 */
 
 Schedule::command('pharmacies:annuaire-geocode')
-    ->weeklyOn(6, '01:00');
+    ->weeklyOn(6, '01:00')
+    ->withoutOverlapping();
 
 
 /*
 |--------------------------------------------------------------------------
-| Médicaments
+| MEDICAMENTS
 |--------------------------------------------------------------------------
 |
-| Le premier jour de chaque mois à 04h00.
+| Le 1er de chaque mois à 04h00.
 |
 */
 
 Schedule::command('medicaments:import')
-    ->monthlyOn(1, '04:00');
+    ->monthlyOn(1, '04:00')
+    ->withoutOverlapping();
+
+Schedule::command('pharmacy-invitations:clean')
+    ->everyTenMinutes();
+

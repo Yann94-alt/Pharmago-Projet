@@ -45,7 +45,6 @@ Lors de votre inscription, vous devrez renseigner :
     <li>Nom de la pharmacie</li>
     <li>Adresse</li>
     <li>Téléphone</li>
-    <li>Coordonnées GPS</li>
     <li>Mot de passe</li>
 </ul>
 

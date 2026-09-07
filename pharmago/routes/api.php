@@ -1,5 +1,5 @@
 <?php
-
+ 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\ReservationPharmacieController;
 use App\Http\Controllers\Api\AuthController;
@@ -15,43 +15,42 @@ use App\Http\Controllers\Api\QrCodeController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PharmacyRegisterController;
 use App\Http\Controllers\API\BeneficiaireController;
+use Illuminate\Support\Facades\Broadcast;
 
+Broadcast::routes([
+    'middleware' => ['auth:api'],
+]);
 
-
-/*
-|--------------------------------------------------------------------------
-| AUTH PUBLIQUE
-|--------------------------------------------------------------------------
-*/
-
-Route::post('/register', [
+ 
+Route::post('/auth/forgot-password', [
+    AuthController::class,
+    'forgotPassword'
+]);
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+ 
+Route::post('/inscription', [
     AuthController::class,
     'register'
 ]);
-
-Route::post('/login', [
+ 
+Route::post('/connexion', [
     AuthController::class,
     'login'
 ]);
-
-
-
-/*
-|--------------------------------------------------------------------------
-| ADMIN - INVITATION PHARMACIE
-|--------------------------------------------------------------------------
-*/
+ 
+ 
+ 
 /*
 |--------------------------------------------------------------------------
 | ADMIN - INVITATION PHARMACIE + DASHBOARD
 |--------------------------------------------------------------------------
 */
-
+ 
 Route::middleware([
     'auth:api',
     'admin'
 ])->group(function () {
-
+ 
 Route::get(
     '/admin/users',
     [
@@ -59,7 +58,7 @@ Route::get(
         'users'
     ]
 );
-
+ 
 Route::delete(
     '/admin/users/{id}',
     [
@@ -67,13 +66,6 @@ Route::delete(
         'deleteUser'
     ]
 )->whereNumber('id');
-
-    /*
-    |--------------------------------------------------------------------------
-    | DASHBOARD ADMIN
-    |--------------------------------------------------------------------------
-    */
-
     Route::get(
         '/admin/dashboard',
         [
@@ -81,13 +73,8 @@ Route::delete(
             'dashboard'
         ]
     );
+Route::post('/admins', [AdminController::class, 'createAdmin']);
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | INVITER UNE PHARMACIE
-    |--------------------------------------------------------------------------
-    */
 
     Route::post(
         '/admin/inviter-pharmacie',
@@ -96,20 +83,9 @@ Route::delete(
             'invitePharmacie'
         ]
     );
-
+ 
 });
-
-
-/*
-|--------------------------------------------------------------------------
-| INVITATION PHARMACIE PUBLIQUE
-|--------------------------------------------------------------------------
-|
-| Cette route est publique car la pharmacie doit pouvoir vérifier
-| son invitation avant de créer son compte.
-|
-*/
-
+ 
 Route::get(
     '/admin/invitation/{token}',
     [
@@ -124,16 +100,7 @@ Route::post(
         'register'
     ]
 );
-
-
-
-/*
-|--------------------------------------------------------------------------
-| PHARMACIES PUBLIQUES
-|--------------------------------------------------------------------------
-*/
-
-
+ 
 Route::get(
     '/pharmacies/garde',
     [
@@ -141,8 +108,8 @@ Route::get(
         'deGarde'
     ]
 );
-
-
+ 
+ 
 Route::get(
     '/pharmacies/search',
     [
@@ -150,8 +117,8 @@ Route::get(
         'search'
     ]
 );
-
-
+ 
+ 
 Route::get(
     '/pharmacies/nearby',
     [
@@ -160,6 +127,9 @@ Route::get(
     ]
 );
 
+Route::get('/pharmacies/medicaments', [MedicamentController::class, 'tousMedicaments']);
+
+ 
 
 Route::get(
     '/pharmacies',
@@ -168,8 +138,8 @@ Route::get(
         'index'
     ]
 );
-
-
+ 
+ 
 Route::get(
     '/pharmacies/{pharmacie}',
     [
@@ -177,20 +147,12 @@ Route::get(
         'show'
     ]
 )->whereNumber('pharmacie');
-
-
+ 
+ 
 Route::get(
     '/pharmacies/nearby-partners',
     [PharmacieController::class, 'nearbyPartners']
 );
-
-/*
-|--------------------------------------------------------------------------
-| MEDICAMENTS PUBLICS
-|--------------------------------------------------------------------------
-*/
-
- 
 Route::get(
     '/medicaments',
     [
@@ -198,8 +160,8 @@ Route::get(
         'index'
     ]
 );
-
-
+ 
+ 
 Route::get(
     '/medicaments/{medicament}',
     [
@@ -207,32 +169,15 @@ Route::get(
         'show'
     ]
 )->whereNumber('medicament');
-
-
-
-
-
-/*
-|--------------------------------------------------------------------------
-| ROUTES AUTH JWT
-|--------------------------------------------------------------------------
-*/
-
-
+ 
 Route::middleware('auth:api')->group(function () {
-
+ 
 Route::get('/beneficiaires', [BeneficiaireController::class, 'index']);
-    Route::post('/beneficiaires', [BeneficiaireController::class, 'store']);
-    Route::delete('/beneficiaires/{beneficiaire}', [BeneficiaireController::class, 'destroy']);
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | AUTH
-    |--------------------------------------------------------------------------
-    */
-
-
+Route::post('/beneficiaires', [BeneficiaireController::class, 'store']);
+Route::delete('/beneficiaires/{beneficiaire}', [BeneficiaireController::class, 'destroy']);
+ 
+ 
+ 
     Route::post(
         '/logout',
         [
@@ -240,8 +185,8 @@ Route::get('/beneficiaires', [BeneficiaireController::class, 'index']);
             'logout'
         ]
     );
-
-
+ 
+ 
     Route::get(
         '/me',
         [
@@ -249,16 +194,8 @@ Route::get('/beneficiaires', [BeneficiaireController::class, 'index']);
             'me'
         ]
     );
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | PHARMACIES
-    |--------------------------------------------------------------------------
-    */
-
-
+ 
+ 
     Route::post(
         '/pharmacies',
         [
@@ -266,8 +203,8 @@ Route::get('/beneficiaires', [BeneficiaireController::class, 'index']);
             'store'
         ]
     );
-
-
+ 
+ 
     Route::put(
         '/pharmacies/{pharmacie}',
         [
@@ -275,16 +212,7 @@ Route::get('/beneficiaires', [BeneficiaireController::class, 'index']);
             'update'
         ]
     )->whereNumber('pharmacie');
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ORDONNANCES
-    |--------------------------------------------------------------------------
-    */
-
-
+ 
     Route::get(
         '/ordonnances',
         [
@@ -292,8 +220,8 @@ Route::get('/beneficiaires', [BeneficiaireController::class, 'index']);
             'index'
         ]
     );
-
-
+ 
+ 
     Route::post(
         '/ordonnances',
         [
@@ -301,8 +229,8 @@ Route::get('/beneficiaires', [BeneficiaireController::class, 'index']);
             'store'
         ]
     );
-
-
+ 
+ 
     Route::get(
         '/ordonnances/{ordonnance}',
         [
@@ -310,52 +238,51 @@ Route::get('/beneficiaires', [BeneficiaireController::class, 'index']);
             'show'
         ]
     )->whereNumber('ordonnance');
-
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | RESERVATIONS PATIENT
-    |--------------------------------------------------------------------------
-    */
-
-
-    Route::post(
-        '/reservations',
-        [
-            ReservationPatientController::class,
-            'store'
-        ]
+ 
+  Route::delete(
+    '/auth/delete-account',
+    [
+        AuthController::class,
+        'deleteAccount'
+    ]
+);
+ 
+Route::post(
+    '/reservations',
+    [
+        ReservationPatientController::class,
+        'store'
+    ]
+)->whereNumber('pharmacie_id');
+ 
+ 
+Route::post(
+    '/reservations/{reservation}/confirmer',
+    [
+        ReservationPatientController::class,
+        'confirmerReservation'
+    ]
+)->whereNumber('reservation');
+  Route::get(
+        '/pharmacie/historique-reservations',
+        [ ReservationPharmacieController::class, 'historiqueReservations']
     );
+ 
+Route::post(
+    '/reservations/{reservation}/annuler',
+    [
+        ReservationPatientController::class,
+        'annulerReservation'
+    ]
+)->whereNumber('reservation');
+ 
 
-
-    Route::post(
-        '/reservations/{reservation}/accepter',
-        [
-            ReservationPatientController::class,
-            'accepterProposition'
-        ]
-    )->whereNumber('reservation');
-
-
-    Route::post(
-        '/reservations/{reservation}/piece-identite',
-        [
-            ReservationPatientController::class,
-            'envoyerPieceIdentite'
-        ]
-    )->whereNumber('reservation');
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | RESERVATIONS PHARMACIE
-    |--------------------------------------------------------------------------
-    */
-
-
+Route::delete(
+        '/notifications/{notification}',
+        [NotificationController::class, 'destroy']
+    );
+ 
+ 
 Route::get(
     '/pharmacies/reservations',
     [
@@ -363,7 +290,8 @@ Route::get(
         'index'
     ]
 );
-
+ 
+ 
 Route::get(
     '/pharmacies/reservations/{reservation}',
     [
@@ -371,7 +299,6 @@ Route::get(
         'show'
     ]
 )->whereNumber('reservation');
-
 Route::post(
     '/pharmacies/reservations/{reservation}/proposition',
     [
@@ -379,15 +306,7 @@ Route::post(
         'analyserReservation'
     ]
 )->whereNumber('reservation');
-
-Route::post(
-    '/pharmacies/reservations/{reservation}/confirmer',
-    [
-        ReservationPharmacieController::class,
-        'confirmer'
-    ]
-)->whereNumber('reservation');
-
+ 
 Route::put(
     '/pharmacies/reservations/{reservation}/statut',
     [
@@ -395,7 +314,7 @@ Route::put(
         'updateStatut'
     ]
 )->whereNumber('reservation');
-
+ 
 Route::get(
     '/pharmacies/reservations/{reservation}/documents',
     [
@@ -403,6 +322,8 @@ Route::get(
         'documents'
     ]
 )->whereNumber('reservation');
+ 
+ 
 Route::get(
     '/pharmacies/reservations/{reservation}/documents/{type}',
     [
@@ -410,40 +331,14 @@ Route::get(
         'document'
     ]
 )->whereNumber('reservation')
-  ->whereIn('type', ['ordonnance', 'assurance', 'identite']);
-    /*
-    |--------------------------------------------------------------------------
-    | RESERVATIONS ADMIN / GENERAL
-    |--------------------------------------------------------------------------
-    */
-
-
-    Route::put(
-        '/reservations/{reservation}/statut',
-        [
-            ReservationController::class,
-            'updateStatut'
-        ]
-    )->whereNumber('reservation');
-
-
-    Route::post(
-        '/reservations/{reservation}/confirmer',
-        [
-            ReservationController::class,
-            'confirmer'
-        ]
-    )->whereNumber('reservation');
-
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ASSURANCES
-    |--------------------------------------------------------------------------
-    */
-
+ ->whereIn(
+     'type',
+     [
+         'ordonnance',
+         'assurance',
+         'bon'
+     ]
+ );
 
     Route::get(
         '/assurances',
@@ -452,8 +347,8 @@ Route::get(
             'index'
         ]
     );
-
-
+ 
+ 
     Route::post(
         '/assurances',
         [
@@ -461,8 +356,8 @@ Route::get(
             'store'
         ]
     );
-
-
+ 
+ 
     Route::delete(
         '/assurances/{assurance}',
         [
@@ -470,18 +365,18 @@ Route::get(
             'destroy'
         ]
     )->whereNumber('assurance');
-
-
-
-
-
+ 
+ 
+ 
+ 
+ 
     /*
     |--------------------------------------------------------------------------
     | FACTURES
     |--------------------------------------------------------------------------
     */
-
-
+ 
+ 
     Route::post(
         '/factures',
         [
@@ -489,8 +384,8 @@ Route::get(
             'store'
         ]
     );
-
-
+ 
+ 
     Route::get(
         '/factures/{facture}',
         [
@@ -498,27 +393,18 @@ Route::get(
             'show'
         ]
     )->whereNumber('facture');
-
-
-
-
-
+ 
+ 
+ 
+ 
+ 
     /*
     |--------------------------------------------------------------------------
     | QR CODE
     |--------------------------------------------------------------------------
     */
-
-
-    Route::post(
-        '/qrcodes/scanner',
-        [
-            QrCodeController::class,
-            'scanner'
-        ]
-    );
-
-
+ 
+ 
     Route::put(
         '/qrcodes/{code}/utiliser',
         [
@@ -526,18 +412,11 @@ Route::get(
             'utiliser'
         ]
     );
-
-
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | NOTIFICATIONS
-    |--------------------------------------------------------------------------
-    */
-
-
+ 
+ 
+ 
+ 
+ 
     Route::get(
         '/notifications',
         [
@@ -545,8 +424,8 @@ Route::get(
             'index'
         ]
     );
-
-
+ 
+ 
     Route::put(
         '/notifications/{notification}/lu',
         [
@@ -554,8 +433,8 @@ Route::get(
             'marquerLue'
         ]
     );
-
-
+ 
+ 
     Route::put(
         '/notifications/lire-tout',
         [
@@ -563,18 +442,19 @@ Route::get(
             'marquerToutLu'
         ]
     );
-
-
-
-
-
+ 
+ Route::get(
+    '/reservations/{reservation}',
+    [ReservationPatientController::class, 'show']
+);
+ 
     /*
     |--------------------------------------------------------------------------
     | MEDICAMENTS ADMIN
     |--------------------------------------------------------------------------
     */
-
-
+ 
+ 
     Route::post(
         '/medicaments',
         [
@@ -582,6 +462,8 @@ Route::get(
             'store'
         ]
     );
-
-
+    Route::get('/medicaments', [MedicamentController::class, 'index']);
+ 
+ 
 });
+ 

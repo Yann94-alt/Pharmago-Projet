@@ -247,7 +247,7 @@ export default function PatientDash() {
               }`}
             >
               <FiNavigation className={`w-4 h-4 ${locating ? 'animate-spin' : ''}`} />
-              <span>{locating ? 'Localisation...' : 'Pharmacies proches'}</span>
+              <span>{locating ? 'Localisation...' : 'PharmaciesDe Garde'}</span>
             </button>
           </div>
 

@@ -62,7 +62,7 @@ export default function PharmacyRegister() {
       setSuccess(response.data?.message || 'Votre compte pharmacie a été créé avec succès.')
       
       setTimeout(() => {
-        navigate('/login') // Redirection vers la page de connexion après succès
+        navigate('/connexion') // Redirection vers la page de connexion après succès
       }, 2500)
     } catch (err) {
       console.error("Erreur lors de l'inscription :", err)

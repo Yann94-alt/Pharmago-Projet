@@ -1,228 +1,418 @@
-import { Routes, Route } from 'react-router-dom'
+import {
+  Routes,
+  Route
+} from 'react-router-dom'
+
+import {
+  lazy,
+  Suspense
+} from 'react'
+
 import { useAuth } from './context/AuthContext'
 
 import Layout from './components/Layout'
 import PrivateRoute from './components/PrivateRoute'
 
-import PharmacyRegister from "./pages/PharmacyRegister"
 
-import Login from './pages/Login'
-import Register from './pages/Register'
-
-import Pharmacies from './pages/Pharmacies'
-import PharmacyDetail from './pages/PharmacyDetail'
-
-import Medicaments from './pages/Medicaments'
-import Ordonnances from './pages/Ordonnances'
-import Assurances from './pages/Assurances'
-
-import Reservations from './pages/Reservations'
-import ReservationDetail from './pages/ReservationDetail'
-
-import Notifications from './pages/Notifications'
-
-import PharmacyDashboard from './pages/PharmacyDashboard'
-import TraitementReservation from './pages/TraitementReservation' // <-- Import de la page de traitement
-
-import AdminDashboard from './pages/AdminDashboard'
-
-import QrScanner from './pages/QrScanner'
-
-import PatientDash from './pages/PatientDash'
-import CartePage from './pages/CartePage'
-import AdminPatients from './pages/AdminPatients'
+/*
+|--------------------------------------------------------------------------
+| LAZY LOADING DES PAGES
+|--------------------------------------------------------------------------
+|
+| Les pages ne seront chargées que lorsqu'elles sont nécessaires.
+|
+*/
 
 
-function Home() {
-  const { isPharmacie } = useAuth()
+// =========================
+// AUTHENTIFICATION
+// =========================
 
-  return isPharmacie 
-      ? <PharmacyDashboard /> 
-      : <Pharmacies />
+const NotificationReservation = lazy(
+  () => import('./pages/NotificationReservation')
+)
+
+const Login = lazy(
+  () => import('./pages/Login')
+)
+
+const Register = lazy(
+  () => import('./pages/Register')
+)
+
+const ForgotPassword = lazy(
+  () => import('./pages/ForgotPassword')
+)
+
+const VerifyOtp = lazy(
+  () => import('./pages/VerifyOtp')
+)
+
+const PharmacyRegister = lazy(
+  () => import('./pages/PharmacyRegister')
+)
+
+
+// =========================
+// PATIENT
+// =========================
+
+const Pharmacies = lazy(
+  () => import('./pages/Pharmacies')
+)
+
+const PharmacyDetail = lazy(
+  () => import('./pages/PharmacyDetail')
+)
+
+
+const Medicaments = lazy(
+  () => import('./pages/Medicaments')
+)
+
+const Ordonnances = lazy(
+  () => import('./pages/Ordonnances')
+)
+
+const Assurances = lazy(
+  () => import('./pages/Assurances')
+)
+
+const Reservations = lazy(
+  () => import('./pages/Reservations')
+)
+
+const ReservationDetail = lazy(
+  () => import('./pages/ReservationDetail')
+)
+
+const Notifications = lazy(
+  () => import('./pages/Notifications')
+)
+
+
+const PatientDash = lazy(
+  () => import('./pages/PatientDash')
+)
+
+const CartePage = lazy(
+  () => import('./pages/CartePage')
+)
+
+
+// =========================
+// PHARMACIE
+// =========================
+
+const PharmacyDashboard = lazy(
+  () => import('./pages/PharmacyDashboard')
+)
+
+const PharmacyHistory = lazy(
+  () => import('./pages/PharmacyHistory')
+)
+
+const TraitementReservation = lazy(
+  () => import('./pages/TraitementReservation')
+)
+
+const QrScanner = lazy(
+  () => import('./pages/QrScanner')
+)
+
+
+// =========================
+// ADMIN
+// =========================
+
+const AdminDashboard = lazy(
+  () => import('./pages/AdminDashboard')
+)
+
+const AdminPatients = lazy(
+  () => import('./pages/AdminPatients')
+)
+
+
+/*
+|--------------------------------------------------------------------------
+| PAGE DE CHARGEMENT
+|--------------------------------------------------------------------------
+*/
+
+function PageLoader() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+
+      <div className="flex flex-col items-center gap-4">
+
+        <div className="w-10 h-10 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
+
+        <p className="text-sm font-semibold text-slate-500">
+          Chargement...
+        </p>
+
+      </div>
+
+    </div>
+  )
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| HOME
+|--------------------------------------------------------------------------
+|
+| La page d'accueil dépend du rôle de l'utilisateur.
+|
+*/
+
+function Home() {
+
+  const {
+    isPharmacie
+  } = useAuth()
+
+  return isPharmacie
+    ? <PharmacyDashboard />
+    : <Pharmacies />
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| APP
+|--------------------------------------------------------------------------
+*/
+
 export default function App() {
+
   return (
-    <Routes>
 
-      {/* =========================
-          ROUTES PUBLIQUES
-      ========================== */}
+    <Suspense fallback={<PageLoader />}>
 
-      <Route 
-        path="/connexion" 
-        element={<Login />} 
-      />
+      <Routes>
 
-      <Route 
-        path="/inscription" 
-        element={<Register />} 
-      />
+        {/* =========================================================
+            ROUTES PUBLIQUES
+        ========================================================== */}
 
-      {/* Inscription pharmacie par invitation */}
-      <Route
-        path="/pharmacie/register/:token"
-        element={<PharmacyRegister />}
-      />
+        <Route
+          path="/connexion"
+          element={<Login />}
+        />
 
-      {/* Pages publiques */}
-      <Route 
-        path="/Accueil" 
-        element={<PatientDash />} 
-      />
+        <Route
+          path="/inscription"
+          element={<Register />}
+        />
 
-      <Route 
-        path="/carte" 
-        element={<CartePage />} 
-      />
+        <Route
+          path="/mot-de-passe-oublie"
+          element={<ForgotPassword />}
+        />
 
-      {/* =========================
-          DASHBOARD PHARMACIE & ADMIN
-      ========================== */}
+        <Route
+          path="/verification-otp"
+          element={<VerifyOtp />}
+        />
 
-      <Route
-        path="/pharmacie/dashboard"
-        element={
-          <PrivateRoute role="pharmacie">
-            <PharmacyDashboard />
-          </PrivateRoute>
-        }
-      />
+        <Route
+          path="/pharmacie/register/:token"
+          element={<PharmacyRegister />}
+        />
 
-      <Route
-        path="/admin/patients"
-        element={
-          <PrivateRoute role="admin">
-            <AdminPatients />
-          </PrivateRoute>
-        }
-      />
- 
-      <Route
-        path="/admin/dashboard"
-        element={
-            <PrivateRoute role="admin">
+        <Route
+          path="/Accueil"
+          element={<PatientDash />}
+        />
+
+        <Route
+          path="/carte"
+          element={<CartePage />}
+        />
+
+
+        {/* =========================================================
+            ESPACE PROTÉGÉ GLOBAL
+        ========================================================== */}
+
+        <Route element={<Layout />}>
+
+          {/* =======================================================
+              ACCUEIL
+          ======================================================== */}
+
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <Home />
+              </PrivateRoute>
+            }
+          />
+
+
+          {/* =======================================================
+              PHARMACIE
+          ======================================================== */}
+
+          <Route
+            path="/pharmacie/dashboard"
+            element={
+              <PrivateRoute role="pharmacie">
+                <PharmacyDashboard />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/pharmacie/historique"
+            element={
+              <PrivateRoute role="pharmacie">
+                <PharmacyHistory />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/TraitementReservation/:id"
+            element={
+              <PrivateRoute role="pharmacie">
+                <TraitementReservation />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/scanner"
+            element={
+              <PrivateRoute role="pharmacie">
+                <QrScanner />
+              </PrivateRoute>
+            }
+          />
+
+
+          {/* =======================================================
+              ADMIN
+          ======================================================== */}
+
+          <Route
+            path="/admin/dashboard"
+            element={
+              <PrivateRoute role="admin">
                 <AdminDashboard />
-            </PrivateRoute>
-        }
-      />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/admin/patients"
+            element={
+              <PrivateRoute role="admin">
+                <AdminPatients />
+              </PrivateRoute>
+            }
+          />
 
 
-      {/* =========================
-          ESPACE PROTEGE (AVEC LAYOUT)
-      ========================== */}
+          {/* =======================================================
+              PATIENT
+          ======================================================== */}
 
-      <Route element={<Layout />}>
+          <Route
+            path="/pharmacies/:id"
+            element={
+              <PrivateRoute>
+                <PharmacyDetail />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/medicaments"
+            element={
+              <PrivateRoute role="patient">
+                <Medicaments />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/ordonnances"
+            element={
+              <PrivateRoute role="patient">
+                <Ordonnances />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/assurances"
+            element={
+              <PrivateRoute role="patient">
+                <Assurances />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/reservations"
+            element={
+              <PrivateRoute>
+                <Reservations />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/reservations/:id"
+            element={
+              <PrivateRoute>
+                <ReservationDetail />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/notifications"
+            element={
+              <PrivateRoute>
+                <Notifications />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+  path="/notifications/:id"
+  element={
+    <PrivateRoute>
+      <NotificationReservation />
+    </PrivateRoute>
+  }
+/>
+
+        </Route>
+
+
+        {/* =========================================================
+            PAGE INCONNUE
+        ========================================================== */}
 
         <Route
-          path="/"
+          path="*"
           element={
-            <PrivateRoute>
-              <Home />
-            </PrivateRoute>
+            <div className="p-10 text-center text-slate-500 font-semibold">
+              Page introuvable.
+            </div>
           }
         />
 
-        <Route
-          path="/pharmacies/:id"
-          element={
-            <PrivateRoute>
-              <PharmacyDetail />
-            </PrivateRoute>
-          }
-        />
+      </Routes>
 
-        <Route
-          path="/medicaments"
-          element={
-            <PrivateRoute role="patient">
-              <Medicaments />
-            </PrivateRoute>
-          }
-        />
+    </Suspense>
 
-        <Route
-          path="/ordonnances"
-          element={
-            <PrivateRoute role="patient">
-              <Ordonnances />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/assurances"
-          element={
-            <PrivateRoute role="patient">
-              <Assurances />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/reservations"
-          element={
-            <PrivateRoute>
-              <Reservations />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/reservations/:id"
-          element={
-            <PrivateRoute>
-              <ReservationDetail />
-            </PrivateRoute>
-          }
-        />
-
-        {/* Route Traitement de réservation / ordonnance */}
-        <Route
-          path="/TraitementReservation/:id"
-          element={
-            <PrivateRoute role="pharmacie">
-              <TraitementReservation />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/notifications"
-          element={
-            <PrivateRoute>
-              <Notifications />
-            </PrivateRoute>
-          }
-        />
-
-        {/* Scanner QR pharmacie */}
-        <Route
-          path="/scanner"
-          element={
-            <PrivateRoute role="pharmacie">
-              <QrScanner />
-            </PrivateRoute>
-          }
-        />
-
-      </Route>
-
-
-      {/* =========================
-          PAGE INCONNUE
-      ========================== */}
-
-      <Route
-        path="*"
-        element={
-          <div className="p-10 text-center text-brand-500">
-            Page introuvable.
-          </div>
-        }
-      />
-
-    </Routes>
   )
 }

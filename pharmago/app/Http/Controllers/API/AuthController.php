@@ -13,66 +13,179 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 class AuthController extends Controller
 {
     
-  public function register(Request $request)
+ public function register(Request $request)
 {
-    $request->validate([
-        'nom'            => 'required|string|max:255',
-        'prenom'         => 'required|string|max:255',
-        'email'          => 'required|email|unique:users,email',
-        'password'       => 'required|string|min:6|confirmed',
-        'telephone'      => 'nullable|string|max:20',
-        'role'           => 'required|in:patient,pharmacie',
-        'date_naissance' => 'nullable|date',
+    // =========================================================
+    // VALIDATION DES DONNÉES
+    // =========================================================
 
-        // Documents du patient
-        'carte_identite' => 'required_if:role,patient|file|mimes:jpg,jpeg,png,pdf|max:5120',
-        'carte_assurance' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+    $request->validate([
+       'nom' => [
+    'required',
+    'string',
+    'max:255',
+    'regex:/^\pL+$/u',
+],
+
+'prenom' => [
+    'required',
+    'string',
+    'max:255',
+    'regex:/^\pL+$/u',
+],
+        'email' => [
+            'required',
+            'email',
+            'unique:users,email',
+        ],
+
+        'password' => [
+            'required',
+            'string',
+            'min:6',
+            'confirmed',
+        ],
+
+        'telephone' => [
+            'nullable',
+            'string',
+            'max:20',
+        ],
+
+        'role' => [
+            'required',
+            'in:patient,pharmacie',
+        ],
+
+        'date_naissance' => [
+            'nullable',
+            'date',
+        ],
+
+        // Carte d'assurance facultative
+        'carte_assurance' => [
+            'nullable',
+            'file',
+            'mimes:jpg,jpeg,png,pdf',
+            'max:5120',
+        ],
 
     ], [
-        'nom.required' => 'Le nom est obligatoire.',
-        'nom.string' => 'Le nom doit être une chaîne de caractères.',
-        'nom.max' => 'Le nom ne doit pas dépasser 255 caractères.',
 
-        'prenom.required' => 'Le prénom est obligatoire.',
-        'prenom.string' => 'Le prénom doit être une chaîne de caractères.',
-        'prenom.max' => 'Le prénom ne doit pas dépasser 255 caractères.',
+        // =====================================================
+        // NOM
+        // =====================================================
 
-        'email.required' => 'L\'adresse e-mail est obligatoire.',
-        'email.email' => 'L\'adresse e-mail doit être valide.',
-        'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
+        'nom.required' =>
+            'Le nom est obligatoire.',
 
-        'password.required' => 'Le mot de passe est obligatoire.',
-        'password.string' => 'Le mot de passe doit être une chaîne de caractères.',
-        'password.min' => 'Le mot de passe doit contenir au moins 6 caractères.',
-        'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
+        'nom.string' =>
+            'Le nom doit être une chaîne de caractères.',
 
-        'telephone.string' => 'Le numéro de téléphone doit être une chaîne de caractères.',
-        'telephone.max' => 'Le numéro de téléphone ne doit pas dépasser 20 caractères.',
+        'nom.max' =>
+            'Le nom ne doit pas dépasser 255 caractères.',
 
-        'role.required' => 'Le rôle est obligatoire.',
-        'role.in' => 'Le rôle sélectionné n\'est pas valide.',
+        'nom.regex' =>
+            'Le nom ne doit contenir que des lettres',
 
-        'date_naissance.date' => 'La date de naissance doit être une date valide.',
 
-        'carte_identite.required_if' =>
-            'La pièce d\'identité est obligatoire pour un patient.',
-        'carte_identite.file' =>
-            'La pièce d\'identité doit être un fichier.',
-        'carte_identite.mimes' =>
-            'La pièce d\'identité doit être une image ou un PDF.',
-        'carte_identite.max' =>
-            'La pièce d\'identité ne doit pas dépasser 5 Mo.',
+        // =====================================================
+        // PRÉNOM
+        // =====================================================
+
+        'prenom.required' =>
+            'Le prénom est obligatoire.',
+
+        'prenom.string' =>
+            'Le prénom doit être une chaîne de caractères.',
+
+        'prenom.max' =>
+            'Le prénom ne doit pas dépasser 255 caractères.',
+
+        'prenom.regex' =>
+            'Le prénom ne doit contenir que des lettres',
+
+
+        // =====================================================
+        // EMAIL
+        // =====================================================
+
+        'email.required' =>
+            'L\'adresse e-mail est obligatoire.',
+
+        'email.email' =>
+            'L\'adresse e-mail doit être valide.',
+
+        'email.unique' =>
+            'Cette adresse e-mail est déjà utilisée.',
+
+
+        // =====================================================
+        // MOT DE PASSE
+        // =====================================================
+
+        'password.required' =>
+            'Le mot de passe est obligatoire.',
+
+        'password.string' =>
+            'Le mot de passe doit être une chaîne de caractères.',
+
+        'password.min' =>
+            'Le mot de passe doit contenir au moins 6 caractères.',
+
+        'password.confirmed' =>
+            'La confirmation du mot de passe ne correspond pas.',
+
+
+        // =====================================================
+        // TÉLÉPHONE
+        // =====================================================
+
+        'telephone.string' =>
+            'Le numéro de téléphone doit être une chaîne de caractères.',
+
+        'telephone.max' =>
+            'Le numéro de téléphone ne doit pas dépasser 20 caractères.',
+
+
+        // =====================================================
+        // RÔLE
+        // =====================================================
+
+        'role.required' =>
+            'Le rôle est obligatoire.',
+
+        'role.in' =>
+            'Le rôle sélectionné n\'est pas valide.',
+
+
+        // =====================================================
+        // DATE DE NAISSANCE
+        // =====================================================
+
+        'date_naissance.date' =>
+            'La date de naissance doit être une date valide.',
+
+
+        // =====================================================
+        // CARTE D'ASSURANCE
+        // =====================================================
 
         'carte_assurance.file' =>
             'La carte d\'assurance doit être un fichier.',
+
         'carte_assurance.mimes' =>
             'La carte d\'assurance doit être une image ou un PDF.',
+
         'carte_assurance.max' =>
             'La carte d\'assurance ne doit pas dépasser 5 Mo.',
     ]);
 
 
-    // Création de l'utilisateur
+    // =========================================================
+    // CRÉATION DE L'UTILISATEUR
+    // =========================================================
+
     $user = User::create([
         'nom'            => $request->nom,
         'prenom'         => $request->prenom,
@@ -84,42 +197,41 @@ class AuthController extends Controller
     ]);
 
 
-    // Documents uniquement pour les patients
-    if ($request->role === 'patient') {
+    // =========================================================
+    // CARTE D'ASSURANCE FACULTATIVE
+    // =========================================================
 
-        // Pièce d'identité obligatoire
-        $carteIdentite = $request
-            ->file('carte_identite')
-            ->store('cartes_identite', 'local');
+    if ($request->hasFile('carte_assurance')) {
 
-        $user->carte_identite = $carteIdentite;
+        $carteAssurance = $request
+            ->file('carte_assurance')
+            ->store('cartes_assurance', 'local');
 
-
-        // Carte d'assurance facultative
-        if ($request->hasFile('carte_assurance')) {
-
-            $carteAssurance = $request
-                ->file('carte_assurance')
-                ->store('cartes_assurance', 'local');
-
-            $user->carte_assurance = $carteAssurance;
-        }
+        $user->carte_assurance = $carteAssurance;
 
         $user->save();
     }
 
 
+    // =========================================================
+    // GÉNÉRATION DU TOKEN JWT
+    // =========================================================
+
     $token = JWTAuth::fromUser($user);
 
+
+    // =========================================================
+    // RÉPONSE
+    // =========================================================
 
     return response()->json([
         'status'  => 'success',
         'message' => 'Inscription réussie.',
         'token'   => $token,
-        'user'    => $user
+        'user'    => $user,
     ], 201);
 }
-    public function login(Request $request)
+   public function login(Request $request)
     {
         $request->validate([
             'email'    => 'required|email',
@@ -178,123 +290,178 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * POST /api/auth/forgot-password
-     * Demande de réinitialisation -> Envoi OTP
-     */
-    public function forgotPassword(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email'
-        ], [
-            'email.required' => 'L\'adresse e-mail est obligatoire.',
-            'email.email'    => 'L\'adresse e-mail doit être valide.',
-        ]);
+   /**
+ * POST /api/auth/forgot-password
+ * Demande de réinitialisation -> Vérification utilisateur -> Envoi OTP
+ */
+public function forgotPassword(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+    ], [
+        'email.required' => 'L\'adresse e-mail est obligatoire.',
+        'email.email'    => 'L\'adresse e-mail doit être valide.',
+    ]);
 
-       
-        $user = User::where('email', $request->email)->first();
+    $email = strtolower(trim($request->email));
 
-        if ($user) {
-            $otp = rand(100000, 999999);
+    // Vérifier que l'utilisateur existe dans la table users
+    $user = User::where('email', $email)->first();
 
-            DB::table('password_reset_tokens')->updateOrInsert(
-                ['email' => $request->email],
-                [
-                    'token'      => $otp,
-                    'created_at' => now()
-                ]
-            );
-
-            Mail::send([], [], function ($message) use ($request, $otp) {
-                $message->to($request->email)
-                    ->subject("Réinitialisation de votre mot de passe")
-                    ->html("
-                        <div style='font-family: Arial, sans-serif; padding:20px; max-width: 600px; margin: auto; border: 1px solid #eee;'>
-                            <h2 style='color: #2d89ef;'>PharmaGo</h2>
-                            <p>Bonjour,</p>
-                            <p>Vous avez demandé la réinitialisation de votre mot de passe. Voici votre code de validation OTP :</p>
-                            <div style='background: #f4f4f4; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #2d89ef;'>
-                                $otp
-                            </div>
-                            <p>Ce code est valide pendant <b>15 minutes</b>. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.</p>
-                            <hr style='border:none; border-top:1px solid #eee;'>
-                            <p style='font-size: 12px; color: #777;'>L'équipe PharmaGo</p>
-                        </div>
-                    ");
-            });
-        }
-
+    if (!$user) {
         return response()->json([
-            'status'  => 'success',
-            'message' => 'Si cet e-mail correspond à un compte, un code OTP vous a été envoyé.'
-        ], 200);
+            'status'  => 'error',
+            'message' => 'Aucun compte PharmaGo ne correspond à cette adresse e-mail.',
+        ], 404);
     }
 
-    /**
-     * POST /api/auth/reset-password
-     * Validation OTP et changement de mot de passe
-     */
-    public function resetPassword(Request $request)
-    {
-        $request->validate([
-            'email'    => 'required|email',
-            'token'    => 'required|numeric', // Ton OTP
-            'password' => 'required|string|min:6|confirmed'
-        ], [
-            'email.required'     => 'L\'adresse e-mail est obligatoire.',
-            'email.email'        => 'L\'adresse e-mail doit être valide.',
-            'token.required'     => 'Le code OTP est obligatoire.',
-            'token.numeric'      => 'Le code OTP doit être composé uniquement de chiffres.',
-            'password.required'  => 'Le nouveau mot de passe est obligatoire.',
-            'password.string'    => 'Le mot de passe doit être une chaîne de caractères.',
-            'password.min'       => 'Le nouveau mot de passe doit contenir au moins 6 caractères.',
-            'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
-        ]);
+    // Supprimer un ancien OTP
+    DB::table('password_reset_tokens')
+        ->where('email', $email)
+        ->delete();
 
-        // 1. Récupérer le jeton OTP en BDD
-        $record = DB::table('password_reset_tokens')
-            ->where('email', $request->email)
-            ->where('token', $request->token)
-            ->first();
+    // Générer un OTP à 6 chiffres
+    $otp = random_int(100000, 999999);
 
-        if (!$record) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Code OTP invalide.'
-            ], 400);
-        }
+    // Enregistrer le nouvel OTP
+    DB::table('password_reset_tokens')->insert([
+        'email'      => $email,
+        'token'      => (string) $otp,
+        'created_at' => now(),
+    ]);
 
-        // 2. Vérifier s'il a expiré (15 minutes)
-        if (now()->diffInMinutes($record->created_at) > 15) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Ce code OTP a expiré.'
-            ], 400);
-        }
+    // Envoyer l'OTP par email
+    Mail::send([], [], function ($message) use ($email, $otp) {
+        $message
+            ->to($email)
+            ->subject('Réinitialisation de votre mot de passe - PharmaGo')
+            ->html("
+                <div style='font-family:Arial,sans-serif;padding:20px;max-width:600px;margin:auto;border:1px solid #eee;border-radius:12px;'>
+                    <h2 style='color:#059669;'>PharmaGo</h2>
 
-        // 3. Récupérer l'utilisateur
-        $user = User::where('email', $request->email)->first();
+                    <p>Bonjour,</p>
 
-        if (!$user) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Utilisateur introuvable.'
-            ], 404);
-        }
+                    <p>
+                        Vous avez demandé la réinitialisation de votre mot de passe.
+                    </p>
 
-        // 4. Mettre à jour le mot de passe
-        $user->update([
-            'password' => Hash::make($request->password)
-        ]);
+                    <p>
+                        Voici votre code de validation :
+                    </p>
 
-        // 5. Supprimer le jeton utilisé pour éviter les réutilisations
-        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+                    <div style='
+                        background:#ecfdf5;
+                        padding:20px;
+                        text-align:center;
+                        font-size:32px;
+                        font-weight:bold;
+                        letter-spacing:6px;
+                        color:#047857;
+                        border-radius:10px;
+                        margin:20px 0;
+                    '>
+                        {$otp}
+                    </div>
+
+                    <p>
+                        Ce code est valide pendant <strong>15 minutes</strong>.
+                    </p>
+
+                    <p style='font-size:12px;color:#777;'>
+                        Si vous n'êtes pas à l'origine de cette demande,
+                        ignorez cet e-mail.
+                    </p>
+
+                    <hr style='border:none;border-top:1px solid #eee;'>
+
+                    <p style='font-size:12px;color:#777;'>
+                        L'équipe PharmaGo
+                    </p>
+                </div>
+            ");
+    });
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Un code OTP a été envoyé à votre adresse e-mail.',
+    ], 200);
+}
+/**
+ * POST /api/auth/reset-password
+ * Validation OTP et changement de mot de passe
+ */
+public function resetPassword(Request $request)
+{
+    $request->validate([
+        'email'    => 'required|email',
+        'token'    => 'required|numeric',
+        'password' => 'required|string|min:6|confirmed',
+    ], [
+        'email.required'     => 'L\'adresse e-mail est obligatoire.',
+        'email.email'        => 'L\'adresse e-mail doit être valide.',
+        'token.required'     => 'Le code OTP est obligatoire.',
+        'token.numeric'      => 'Le code OTP doit être composé uniquement de chiffres.',
+        'password.required'  => 'Le nouveau mot de passe est obligatoire.',
+        'password.string'    => 'Le mot de passe doit être une chaîne de caractères.',
+        'password.min'       => 'Le nouveau mot de passe doit contenir au moins 6 caractères.',
+        'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
+    ]);
+
+    $email = strtolower(trim($request->email));
+
+    // Vérifier que l'utilisateur existe
+    $user = User::where('email', $email)->first();
+
+    if (!$user) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Aucun compte PharmaGo ne correspond à cette adresse e-mail.',
+        ], 404);
+    }
+
+    // Vérifier le code OTP
+    $record = DB::table('password_reset_tokens')
+        ->where('email', $email)
+        ->where('token', (string) $request->token)
+        ->first();
+
+    if (!$record) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Code OTP invalide.',
+        ], 400);
+    }
+
+    // Vérifier l'expiration : 15 minutes
+    $createdAt = \Carbon\Carbon::parse($record->created_at);
+
+    if ($createdAt->addMinutes(15)->isPast()) {
+
+        DB::table('password_reset_tokens')
+            ->where('email', $email)
+            ->delete();
 
         return response()->json([
-            'status'  => 'success',
-            'message' => 'Votre mot de passe a été modifié avec succès.'
-        ], 200);
+            'status'  => 'error',
+            'message' => 'Ce code OTP a expiré. Veuillez demander un nouveau code.',
+        ], 400);
     }
+
+    // Modifier le mot de passe
+    $user->update([
+        'password' => Hash::make($request->password),
+    ]);
+
+    // Supprimer l'OTP après utilisation
+    DB::table('password_reset_tokens')
+        ->where('email', $email)
+        ->delete();
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Votre mot de passe a été modifié avec succès.',
+    ], 200);
+}
     /**
  * DELETE /api/auth/delete-account
  * Supprimer le compte de l'utilisateur connecté

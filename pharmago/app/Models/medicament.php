@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class medicament extends Model
 {
      protected $fillable = [
-        'nom', 'description', 'prix_marche', 'categorie',
+        'nom', 'description', 'prix_marche', 'categorie', 'unite',
     ];
    public function pharmacies()
 {
@@ -21,8 +21,20 @@ class medicament extends Model
     ->withTimestamps();
 }  public function reservations()
     {
-        return $this->belongsToMany(Reservation::class, 'reservation_medicament')
-                    ->withPivot('quantite', 'prix_unitaire')
-                    ->withTimestamps();
+        return $this->belongsToMany(
+            Reservation::class,
+            'reservation_medicament',
+            'medicament_id',
+            'reservation_id'
+        )
+        ->withPivot([
+            'quantite',
+            'prix_unitaire',
+        ])
+        ->withTimestamps();
     }
 }
+
+ 
+
+    

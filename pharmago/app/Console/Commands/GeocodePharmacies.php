@@ -5,453 +5,839 @@ namespace App\Console\Commands;
 use App\Models\GardePharmacie;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
-use Exception;
+use Throwable;
 
 class GeocodePharmacies extends Command
 {
-
-    protected $signature = 'pharmacies:geocode {--limit=}';
+    protected $signature = 'pharmacies:geocode
+                            {--limit= : Nombre maximum de pharmacies à traiter}';
 
     protected $description = 'Ajoute les coordonnées GPS des pharmacies de garde';
 
+    /*
+    |--------------------------------------------------------------------------
+    | Statistiques
+    |--------------------------------------------------------------------------
+    */
 
+    private int $trouvees = 0;
+    private int $introuvables = 0;
+    private int $erreurs = 0;
 
-    public function handle()
+    public function handle(): int
     {
+        $this->info('🚀 Début du géocodage...');
 
-        $this->info("🚀 Début du géocodage...");
+        $limit = $this->option('limit');
 
+        /*
+        |--------------------------------------------------------------------------
+        | On sélectionne uniquement les pharmacies incomplètes.
+        |--------------------------------------------------------------------------
+        */
 
-        $query = GardePharmacie::where(function($q){
+        $query = GardePharmacie::query()
+            ->where(function ($q) {
+                $q->whereNull('latitude')
+                  ->orWhereNull('longitude');
+            })
+            ->orderBy('id');
 
-            $q->whereNull('latitude')
-              ->orWhereNull('longitude');
-
-        });
-
-
-
-        if($this->option('limit')){
-
-            $query->limit(
-                intval($this->option('limit'))
-            );
-
+        if ($limit !== null) {
+            $query->limit((int) $limit);
         }
-
-
 
         $pharmacies = $query->get();
 
+        /*
+        |--------------------------------------------------------------------------
+        | Rien à traiter
+        |--------------------------------------------------------------------------
+        */
 
-
-        if($pharmacies->isEmpty()){
+        if ($pharmacies->isEmpty()) {
 
             $this->info(
-                "✅ Toutes les pharmacies ont déjà des coordonnées."
+                '✅ Toutes les pharmacies ont déjà des coordonnées.'
             );
 
             return Command::SUCCESS;
-
         }
 
+        $this->info(
+            "📍 Pharmacies à traiter : {$pharmacies->count()}"
+        );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Traitement
+        |--------------------------------------------------------------------------
+        */
 
-
-        foreach($pharmacies as $pharmacie){
-
+        foreach ($pharmacies as $pharmacie) {
 
             $this->newLine();
 
-
             $this->info(
-                "Recherche : ".$pharmacie->nom." - ".$pharmacie->ville
+                "🏥 {$pharmacie->nom} - {$pharmacie->ville}"
             );
 
+            /*
+            |--------------------------------------------------------------------------
+            | Sécurité supplémentaire
+            |--------------------------------------------------------------------------
+            |
+            | Si les coordonnées ont été ajoutées entre le moment où la
+            | requête a été faite et maintenant, on ne touche plus à la ligne.
+            |
+            */
 
+            if (
+                !is_null($pharmacie->latitude)
+                &&
+                !is_null($pharmacie->longitude)
+            ) {
 
-            $gps = $this->trouverCoordonnees(
-
-                $pharmacie->nom,
-
-                $pharmacie->ville
-
-            );
-
-
-
-            if($gps){
-
-
-                $pharmacie->update([
-
-                    'latitude'=>$gps['latitude'],
-
-                    'longitude'=>$gps['longitude']
-
-                ]);
-
-
-
-                $this->info(
-                    "✅ GPS : ".$gps['latitude']." / ".$gps['longitude']
+                $this->line(
+                    "⏭️ Déjà géocodée : {$pharmacie->latitude} / {$pharmacie->longitude}"
                 );
 
-
-
-            }else{
-
-
-                $this->warn(
-                    "❌ Introuvable"
-                );
-
+                continue;
             }
 
+            try {
 
+                $gps = $this->trouverCoordonnees(
+                    $pharmacie->nom,
+                    $pharmacie->ville
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | GPS trouvé
+                |--------------------------------------------------------------------------
+                */
+
+                if ($gps) {
+
+                    $pharmacie->latitude = $gps['latitude'];
+                    $pharmacie->longitude = $gps['longitude'];
+
+                    $pharmacie->save();
+
+                    /*
+                    | Recharge depuis la base pour confirmer.
+                    */
+
+                    $pharmacie->refresh();
+
+                    if (
+                        !is_null($pharmacie->latitude)
+                        &&
+                        !is_null($pharmacie->longitude)
+                    ) {
+
+                        $this->trouvees++;
+
+                        $this->info(
+                            "✅ GPS enregistré : "
+                            . $pharmacie->latitude
+                            . ' / '
+                            . $pharmacie->longitude
+                        );
+
+                    } else {
+
+                        $this->erreurs++;
+
+                        $this->error(
+                            '❌ Impossible de confirmer la sauvegarde.'
+                        );
+                    }
+
+                } else {
+
+                    $this->introuvables++;
+
+                    $this->warn(
+                        '❌ Pharmacie introuvable sur OpenStreetMap.'
+                    );
+                }
+
+            } catch (Throwable $e) {
+
+                $this->erreurs++;
+
+                $this->error(
+                    '❌ Erreur : ' . $e->getMessage()
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Pause pour respecter Nominatim
+            |--------------------------------------------------------------------------
+            */
 
             sleep(1);
-
         }
 
-
+        /*
+        |--------------------------------------------------------------------------
+        | Résumé
+        |--------------------------------------------------------------------------
+        */
 
         $this->newLine();
 
-        $this->info(
-            "🎉 Géocodage terminé"
+        $this->info('🎉 Géocodage terminé.');
+
+        $this->table(
+            [
+                'Résultat',
+                'Nombre',
+            ],
+            [
+                [
+                    '✅ Coordonnées trouvées',
+                    $this->trouvees,
+                ],
+                [
+                    '❌ Introuvables',
+                    $this->introuvables,
+                ],
+                [
+                    '⚠️ Erreurs',
+                    $this->erreurs,
+                ],
+            ]
         );
-
-
 
         return Command::SUCCESS;
-
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Recherche principale
+    |--------------------------------------------------------------------------
+    */
 
+    private function trouverCoordonnees(
+        ?string $nom,
+        ?string $ville
+    ): ?array {
 
+        $nomOriginal = trim((string) $nom);
+        $villeOriginale = trim((string) $ville);
 
-
-
-   private function trouverCoordonnees($nom, $ville)
-{
-
-    $nom = $this->nettoyerNom($nom);
-
-    $ville = $this->nettoyerVille($ville);
-
-
-
-    $recherches = [
-
-        // Recherche complète
-        "Pharmacie {$nom}, {$ville}, Côte d'Ivoire",
-
-        // Sans pharmacie
-        "{$nom}, {$ville}, Côte d'Ivoire",
-
-        // Nom + ville simple
-        "{$nom} {$ville}",
-
-        // Avec pharmacie + ville seulement
-        "Pharmacie, {$ville}, Côte d'Ivoire",
-
-        // Recherche ville
-        "{$ville}, Côte d'Ivoire"
-
-    ];
-
-
-
-    foreach($recherches as $texte){
-
-
-        $this->line("🔎 ".$texte);
-
-
-        $gps = $this->chercherOSM($texte);
-
-
-
-        if($gps){
-
-            return $gps;
-
+        if ($nomOriginal === '') {
+            return null;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Nettoyage
+        |--------------------------------------------------------------------------
+        */
 
-    }
+        $nomClean = $this->nettoyerNom($nomOriginal);
+        $villeClean = $this->nettoyerVille($villeOriginale);
 
+        /*
+        |--------------------------------------------------------------------------
+        | Si le nom devient vide, on abandonne.
+        |--------------------------------------------------------------------------
+        */
 
-    return null;
+        if ($nomClean === '') {
+            return null;
+        }
 
-}
+        /*
+        |--------------------------------------------------------------------------
+        | Recherches.
+        |--------------------------------------------------------------------------
+        |
+        | IMPORTANT :
+        | On ne recherche jamais uniquement la ville.
+        |
+        */
 
-   private function nettoyerNom($nom)
-{
+        $recherches = [];
 
-    $nom = strtoupper($nom);
+        if ($villeClean !== '') {
 
+            $recherches[] =
+                "Pharmacie {$nomClean}, {$villeClean}, Côte d'Ivoire";
 
-    // enlever les responsables
-    $nom = preg_replace(
-        '/\b(M|MME|MR|MADAME|MONSIEUR)\b.*/',
-        '',
-        $nom
-    );
+            $recherches[] =
+                "{$nomClean}, {$villeClean}, Côte d'Ivoire";
 
+            $recherches[] =
+                "Pharmacie {$nomClean} {$villeClean}";
+        }
 
-    // enlever les mentions inutiles
+        /*
+        | Recherche uniquement par nom en dernier recours.
+        */
 
-    $nom = str_replace(
-        [
-            'PHARMACIE',
-            'PHCIE',
-            'NLLE',
-            'NVLLE',
-            '(NOUVELLE)',
-            '(GDE)'
-        ],
-        '',
-        $nom
-    );
+        $recherches[] =
+            "Pharmacie {$nomClean}, Côte d'Ivoire";
 
+        $recherches[] =
+            "{$nomClean}, Côte d'Ivoire";
 
+        /*
+        |--------------------------------------------------------------------------
+        | Suppression des doublons
+        |--------------------------------------------------------------------------
+        */
 
-    $nom = preg_replace(
-        '/\(.*?\)/',
-        '',
-        $nom
-    );
-
-
-
-    return trim(
-        preg_replace('/\s+/',' ',$nom)
-    );
-
-}
-
-
-    private function nettoyerVille($ville)
-    {
-
-
-        $ville = strtoupper($ville);
-
-
-
-        // garde uniquement la première ville
-
-        $ville = explode(
-
-            '+',
-
-            $ville
-
-        )[0];
-
-
-
-        $ville = str_replace(
-
-            [
-
-                'CENTRE',
-                'COMMUNE',
-                'ABIDJAN'
-
-            ],
-
-            '',
-
-            $ville
-
+        $recherches = array_values(
+            array_unique(
+                array_filter($recherches)
+            )
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Exécution
+        |--------------------------------------------------------------------------
+        */
 
+        foreach ($recherches as $texte) {
 
-        return trim($ville);
+            $this->line(
+                "🔎 {$texte}"
+            );
 
-    }
+            $resultats = $this->chercherOSM($texte);
 
-
-
-
-
-
-
-
-    private function chercherOSM($query)
-    {
-
-
-        try{
-
-
-            $response = Http::withoutVerifying()
-
-                ->timeout(15)
-
-                ->withHeaders([
-
-                    'User-Agent'=>
-                    'PharmaGoCI/1.0'
-
-                ])
-
-                ->get(
-
-                    'https://nominatim.openstreetmap.org/search',
-
-                    [
-
-                        'q'=>$query,
-
-                        'format'=>'json',
-
-                        'limit'=>5,
-
-                        'countrycodes'=>'ci',
-
-                        'addressdetails'=>1
-
-                    ]
-
-                );
-
-
-
-
-
-            if(!$response->successful()){
-
-                return null;
-
+            if (empty($resultats)) {
+                continue;
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Validation des résultats
+            |--------------------------------------------------------------------------
+            */
 
+            foreach ($resultats as $resultat) {
 
+                if (
+                    $this->resultatCorrespond(
+                        $resultat,
+                        $nomClean,
+                        $villeClean
+                    )
+                ) {
 
+                    $this->line(
+                        "🎯 Correspondance trouvée : "
+                        . ($resultat['display_name'] ?? 'inconnue')
+                    );
 
-            foreach($response->json() as $item){
+                    return [
+                        'latitude' =>
+                            (float) $resultat['lat'],
 
-
-
-                $country =
-                $item['address']['country_code'] ?? '';
-
-
-
-                if($country != 'ci'){
-
-                    continue;
-
+                        'longitude' =>
+                            (float) $resultat['lon'],
+                    ];
                 }
+            }
+        }
 
+        return null;
+    }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Nettoyage du nom
+    |--------------------------------------------------------------------------
+    */
 
+    private function nettoyerNom(string $nom): string
+    {
+        $nom = strtoupper($nom);
 
-                $display = strtoupper(
+        /*
+        |--------------------------------------------------------------------------
+        | Suppression des responsables.
+        |--------------------------------------------------------------------------
+        |
+        | Exemple :
+        | PHARMACIE XYZ M. DUPONT
+        |
+        | devient :
+        | PHARMACIE XYZ
+        |
+        */
 
-                    $item['display_name'] ?? ''
+        $nom = preg_replace(
+            '/\b(M|MME|MR|MADAME|MONSIEUR)\b.*$/u',
+            '',
+            $nom
+        );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Suppression des préfixes.
+        |--------------------------------------------------------------------------
+        */
+
+        $nom = preg_replace(
+            '/\b(PHARMACIE|PHCIE)\b/iu',
+            '',
+            $nom
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Abréviations.
+        |--------------------------------------------------------------------------
+        */
+
+        $nom = str_ireplace(
+            [
+                'NLLE',
+                'NVLLE',
+                'GRDE',
+                'GDE',
+            ],
+            [
+                'NOUVELLE',
+                'NOUVELLE',
+                'GRANDE',
+                'GRANDE',
+            ],
+            $nom
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suppression du contenu entre parenthèses.
+        |--------------------------------------------------------------------------
+        */
+
+        $nom = preg_replace(
+            '/\(.*?\)/',
+            '',
+            $nom
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Nettoyage espaces.
+        |--------------------------------------------------------------------------
+        */
+
+        $nom = preg_replace(
+            '/\s+/',
+            ' ',
+            $nom
+        );
+
+        return trim($nom);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Nettoyage de la ville
+    |--------------------------------------------------------------------------
+    */
+
+    private function nettoyerVille(?string $ville): string
+    {
+        if (!$ville) {
+            return '';
+        }
+
+        $ville = strtoupper(trim($ville));
+
+        /*
+        |--------------------------------------------------------------------------
+        | Certaines données peuvent contenir :
+        |
+        | ABIDJAN+CENTRE
+        | ABIDJAN+COCODY
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        $ville = explode('+', $ville)[0];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Nettoyage.
+        |--------------------------------------------------------------------------
+        */
+
+        $ville = str_replace(
+            [
+                'CENTRE',
+                'COMMUNE',
+            ],
+            '',
+            $ville
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ne pas supprimer ABIDJAN.
+        |--------------------------------------------------------------------------
+        |
+        | Ton ancien code supprimait ABIDJAN :
+        |
+        | str_replace(['CENTRE','COMMUNE','ABIDJAN'], '', $ville)
+        |
+        | C'est mauvais pour la recherche.
+        |
+        */
+
+        $ville = preg_replace(
+            '/\s+/',
+            ' ',
+            $ville
+        );
+
+        return trim($ville);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Recherche Nominatim / OpenStreetMap
+    |--------------------------------------------------------------------------
+    */
+
+    private function chercherOSM(string $query): array
+    {
+        try {
+
+            $response = Http::timeout(15)
+                ->retry(2, 1500)
+                ->withHeaders([
+                    'User-Agent' =>
+                        'PharmaGoCI/1.0 (contact@pharmagoci.com)',
+
+                    'Accept' =>
+                        'application/json',
+                ])
+                ->get(
+                    'https://nominatim.openstreetmap.org/search',
+                    [
+                        'q' => $query,
+
+                        'format' => 'json',
+
+                        'limit' => 5,
+
+                        'countrycodes' => 'ci',
+
+                        'addressdetails' => 1,
+
+                        'dedupe' => 1,
+                    ]
                 );
 
+            /*
+            |--------------------------------------------------------------------------
+            | HTTP 429
+            |--------------------------------------------------------------------------
+            */
 
+            if ($response->status() === 429) {
 
+                $this->warn(
+                    '⚠️ Nominatim demande de ralentir.'
+                );
+
+                sleep(5);
+
+                return [];
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Erreur HTTP
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$response->successful()) {
+
+                $this->warn(
+                    "⚠️ Nominatim HTTP {$response->status()}"
+                );
+
+                return [];
+            }
+
+            $data = $response->json();
+
+            if (!is_array($data)) {
+                return [];
+            }
+
+            $resultats = [];
+
+            foreach ($data as $item) {
 
                 /*
-                 Vérifie que c'est bien un commerce/pharmacie
+                |--------------------------------------------------------------------------
+                | Coordonnées
+                |--------------------------------------------------------------------------
                 */
 
-
-                if(
-
-                    !str_contains($display,'PHARM')
-
-                    &&
-
-                    !str_contains($display,'DRUG')
-
-                ){
-
+                if (
+                    !isset($item['lat'])
+                    ||
+                    !isset($item['lon'])
+                ) {
                     continue;
-
                 }
 
+                if (
+                    !is_numeric($item['lat'])
+                    ||
+                    !is_numeric($item['lon'])
+                ) {
+                    continue;
+                }
 
+                /*
+                |--------------------------------------------------------------------------
+                | Vérification Côte d'Ivoire
+                |--------------------------------------------------------------------------
+                */
 
+                $country =
+                    strtolower(
+                        $item['address']['country_code'] ?? ''
+                    );
+
+                if ($country !== 'ci') {
+                    continue;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Type / classe OSM
+                |--------------------------------------------------------------------------
+                */
 
                 $type =
-                $item['type'] ?? '';
-
-
+                    strtolower(
+                        $item['type'] ?? ''
+                    );
 
                 $class =
-                $item['class'] ?? '';
+                    strtolower(
+                        $item['class'] ?? ''
+                    );
 
+                /*
+                |--------------------------------------------------------------------------
+                | Refuser villes / quartiers / frontières.
+                |--------------------------------------------------------------------------
+                */
 
-
-
-
-                // Refuse villes/quartiers
-
-                if(
-
-                    $class == 'boundary'
-
+                if (
+                    $class === 'boundary'
                     ||
-
                     in_array(
-
                         $type,
-
                         [
-
                             'city',
                             'town',
                             'village',
-                            'administrative'
-
-                        ]
-
+                            'administrative',
+                            'suburb',
+                            'neighbourhood',
+                            'quarter',
+                        ],
+                        true
                     )
-
-                ){
-
+                ) {
                     continue;
-
                 }
 
+                /*
+                |--------------------------------------------------------------------------
+                | Vérification que le résultat ressemble à une pharmacie.
+                |--------------------------------------------------------------------------
+                */
 
+                $display = strtoupper(
+                    $item['display_name'] ?? ''
+                );
 
+                $name = strtoupper(
+                    $item['name'] ?? ''
+                );
 
+                $category =
+                    strtoupper(
+                        ($item['type'] ?? '')
+                        . ' '
+                        . ($item['category'] ?? '')
+                    );
 
-                return [
+                $pharmacieTrouvee =
+                    str_contains($display, 'PHARM')
+                    ||
+                    str_contains($name, 'PHARM')
+                    ||
+                    str_contains($category, 'PHARM')
+                    ||
+                    str_contains($display, 'DRUG');
 
-                    'latitude'=>(float)$item['lat'],
+                if (!$pharmacieTrouvee) {
+                    continue;
+                }
 
-                    'longitude'=>(float)$item['lon']
-
-                ];
-
+                $resultats[] = $item;
             }
 
+            return $resultats;
 
+        } catch (Throwable $e) {
 
-        }catch(Exception $e){
+            $this->warn(
+                '⚠️ Erreur Nominatim : '
+                . $e->getMessage()
+            );
 
-
-            return null;
-
+            return [];
         }
-
-
-
-        return null;
-
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Vérification du résultat
+    |--------------------------------------------------------------------------
+    */
 
+    private function resultatCorrespond(
+        array $resultat,
+        string $nomRecherche,
+        string $villeRecherche
+    ): bool {
+
+        $display = strtoupper(
+            $resultat['display_name'] ?? ''
+        );
+
+        $nomOSM = strtoupper(
+            $resultat['name'] ?? ''
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Normalisation pour comparaison.
+        |--------------------------------------------------------------------------
+        */
+
+        $nomRechercheNormalise =
+            $this->normaliserComparaison(
+                $nomRecherche
+            );
+
+        $displayNormalise =
+            $this->normaliserComparaison(
+                $display
+            );
+
+        $nomOSMNormalise =
+            $this->normaliserComparaison(
+                $nomOSM
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Nom complet trouvé dans le résultat.
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $nomRechercheNormalise !== ''
+            &&
+            str_contains(
+                $displayNormalise,
+                $nomRechercheNormalise
+            )
+        ) {
+            return true;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ou nom OSM suffisamment proche.
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $nomOSMNormalise !== ''
+            &&
+            $this->similariteNom(
+                $nomRechercheNormalise,
+                $nomOSMNormalise
+            ) >= 70
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Normalisation comparaison
+    |--------------------------------------------------------------------------
+    */
+
+    private function normaliserComparaison(string $texte): string
+    {
+        $texte = iconv(
+            'UTF-8',
+            'ASCII//TRANSLIT//IGNORE',
+            $texte
+        );
+
+        $texte = strtoupper($texte);
+
+        $texte = preg_replace(
+            '/[^A-Z0-9]+/',
+            ' ',
+            $texte
+        );
+
+        return trim(
+            preg_replace('/\s+/', ' ', $texte)
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Similarité entre deux noms
+    |--------------------------------------------------------------------------
+    */
+
+    private function similariteNom(
+        string $a,
+        string $b
+    ): float {
+
+        if ($a === '' || $b === '') {
+            return 0;
+        }
+
+        similar_text(
+            $a,
+            $b,
+            $percent
+        );
+
+        return (float) $percent;
+    }
 }

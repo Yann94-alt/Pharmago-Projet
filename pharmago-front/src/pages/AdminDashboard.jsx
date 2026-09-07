@@ -17,7 +17,9 @@ import {
   Loader2,
   TrendingUp,
   Sparkles,
-  LogOut
+  LogOut,
+  Lock,
+  User
 } from 'lucide-react';
 import api from '../api/axios';
 
@@ -30,12 +32,25 @@ const AdminDashboard = () => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // États de la modal d'invitation
+  // États de la modal d'invitation (pharmacie)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [inviteError, setInviteError] = useState(null);
   const [inviteSuccess, setInviteSuccess] = useState(null);
+
+  // États de la modal de création d'administrateur
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [adminForm, setAdminForm] = useState({
+    nom: '',
+    prenom: '',
+    email: '',
+    password: '',
+    password_confirmation: ''
+  });
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
+  const [adminError, setAdminError] = useState(null);
+  const [adminSuccess, setAdminSuccess] = useState(null);
 
   // Fonction de chargement du dashboard
   const loadDashboard = async (isRefresh = false) => {
@@ -74,13 +89,12 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error("Erreur lors de la déconnexion:", err);
     } finally {
-      // Nettoyer le stockage local / tokens si nécessaire
       localStorage.removeItem('token');
       navigate('/connexion');
     }
   };
 
-  // Gestion de l'envoi de l'invitation
+  // Gestion de l'envoi de l'invitation pharmacie
   const handleInviteSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -108,6 +122,45 @@ const AdminDashboard = () => {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Gestion de la création d'un administrateur
+  const handleAdminSubmit = async (e) => {
+    e.preventDefault();
+    setAdminSubmitting(true);
+    setAdminError(null);
+    setAdminSuccess(null);
+
+    try {
+      await api.post('/admin/admins', adminForm);
+      setAdminSuccess("Administrateur créé avec succès.");
+      setAdminForm({
+        nom: '',
+        prenom: '',
+        email: '',
+        password: '',
+        password_confirmation: ''
+      });
+      await loadDashboard(true);
+
+      setTimeout(() => {
+        setIsAdminModalOpen(false);
+        setAdminSuccess(null);
+      }, 1500);
+    } catch (err) {
+      console.error("Erreur création admin:", err);
+      if (err.response && err.response.data && err.response.data.errors) {
+        // Prend la première erreur du tableau d'erreurs Laravel
+        const firstErrorKey = Object.keys(err.response.data.errors)[0];
+        setAdminError(err.response.data.errors[firstErrorKey][0]);
+      } else if (err.response && err.response.data && err.response.data.message) {
+        setAdminError(err.response.data.message);
+      } else {
+        setAdminError("Une erreur est survenue lors de la création de l'administrateur.");
+      }
+    } finally {
+      setAdminSubmitting(false);
     }
   };
 
@@ -172,7 +225,6 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Bouton déconnexion mobile visible uniquement sur petits écrans dans le header supérieur */}
             <button
               onClick={handleLogout}
               className="sm:hidden p-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all cursor-pointer"
@@ -193,6 +245,20 @@ const AdminDashboard = () => {
               <span className="hidden sm:inline">Actualiser</span>
             </button>
 
+            {/* Bouton pour ouvrir la modal de création d'admin */}
+            <button
+              onClick={() => {
+                setAdminError(null);
+                setAdminSuccess(null);
+                setAdminForm({ nom: '', prenom: '', email: '', password: '', password_confirmation: '' });
+                setIsAdminModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold text-sm transition-all shadow-md shadow-purple-600/25 active:scale-[0.98] cursor-pointer"
+            >
+              <ShieldAlert className="w-4 h-4" />
+              <span>Créer un admin</span>
+            </button>
+
             <button
               onClick={() => {
                 setInviteError(null);
@@ -206,7 +272,6 @@ const AdminDashboard = () => {
               <span>Inviter une pharmacie</span>
             </button>
 
-            {/* Bouton de déconnexion desktop */}
             <button
               onClick={handleLogout}
               className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-semibold transition-all shadow-2xs cursor-pointer"
@@ -472,6 +537,166 @@ const AdminDashboard = () => {
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin text-white" />}
                   <span>Envoyer l'invitation</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal "Créer un administrateur" */}
+      {isAdminModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-purple-100 max-w-md w-full overflow-hidden transition-all transform scale-100 max-h-[90vh] flex flex-col">
+            
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-purple-50/30 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Créer un administrateur</h3>
+              </div>
+              <button 
+                onClick={() => setIsAdminModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminSubmit} className="p-6 space-y-4 overflow-y-auto">
+              
+              {adminSuccess && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-2xl flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+                  <span className="font-medium">{adminSuccess}</span>
+                </div>
+              )}
+
+              {adminError && (
+                <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-sm rounded-2xl flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+                  <span className="font-medium">{adminError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                    Nom
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={adminForm.nom}
+                      onChange={(e) => setAdminForm({...adminForm, nom: e.target.value})}
+                      placeholder="Nom"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 text-sm text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                    Prénom
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={adminForm.prenom}
+                      onChange={(e) => setAdminForm({...adminForm, prenom: e.target.value})}
+                      placeholder="Prénom"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 text-sm text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Adresse email
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={adminForm.email}
+                    onChange={(e) => setAdminForm({...adminForm, email: e.target.value})}
+                    placeholder="admin@exemple.com"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 text-sm text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Mot de passe (8 car. min)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={adminForm.password}
+                    onChange={(e) => setAdminForm({...adminForm, password: e.target.value})}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 text-sm text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Confirmer le mot de passe
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={adminForm.password_confirmation}
+                    onChange={(e) => setAdminForm({...adminForm, password_confirmation: e.target.value})}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 text-sm text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-6 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsAdminModalOpen(false)}
+                  disabled={adminSubmitting}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={adminSubmitting}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold text-sm transition-all flex items-center gap-2 disabled:opacity-50 shadow-md shadow-purple-600/20 cursor-pointer"
+                >
+                  {adminSubmitting && <Loader2 className="w-4 h-4 animate-spin text-white" />}
+                  <span>Créer l'administrateur</span>
                 </button>
               </div>
 

@@ -101,9 +101,10 @@ const AdminPatients = () => {
 
   const patientsList = filteredUsers.filter(u => u.role === 'patient');
   const pharmaciesList = filteredUsers.filter(u => u.role === 'pharmacie');
+  const adminsList = filteredUsers.filter(u => u.role === 'admin');
 
   // Composant de liste partagé (Table sur Desktop, Cartes empilées sur Mobile)
-  const renderUserList = (list, typeLabel) => {
+  const renderUserList = (list, typeLabel, showDeleteButton = true) => {
     if (list.length === 0) {
       return (
         <div className="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-slate-400 text-sm font-medium shadow-xs">
@@ -138,14 +139,16 @@ const AdminPatients = () => {
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <span className="text-slate-400 font-medium">Inscrit le {formatDate(user.created_at)}</span>
-                <button
-                  onClick={() => confirmDelete(user)}
-                  className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-lg transition-all inline-flex items-center gap-1 font-semibold cursor-pointer"
-                  title="Supprimer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Supprimer</span>
-                </button>
+                {showDeleteButton && (
+                  <button
+                    onClick={() => confirmDelete(user)}
+                    className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-lg transition-all inline-flex items-center gap-1 font-semibold cursor-pointer"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Supprimer</span>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -184,13 +187,15 @@ const AdminPatients = () => {
                     </td>
                     <td className="py-4 px-6 text-slate-500 font-normal">{formatDate(user.created_at)}</td>
                     <td className="py-4 px-6 text-right">
-                      <button
-                        onClick={() => confirmDelete(user)}
-                        className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-lg transition-all inline-flex items-center justify-center cursor-pointer"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {showDeleteButton && (
+                        <button
+                          onClick={() => confirmDelete(user)}
+                          className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-lg transition-all inline-flex items-center justify-center cursor-pointer"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -224,7 +229,7 @@ const AdminPatients = () => {
                 </span>
               </h1>
               <p className="text-slate-400 text-xs sm:text-sm">
-                Supervisez et gérez l'ensemble des patients et structures pharmaceutiques.
+                Supervisez et gérez l'ensemble des patients, structures pharmaceutiques et administrateurs.
               </p>
             </div>
 
@@ -302,7 +307,7 @@ const AdminPatients = () => {
                 </span>
               </div>
 
-              {renderUserList(patientsList, "Patient")}
+              {renderUserList(patientsList, "Patient", true)}
             </section>
 
             {/* SECTION 2 : PHARMACIES */}
@@ -322,7 +327,27 @@ const AdminPatients = () => {
                 </span>
               </div>
 
-              {renderUserList(pharmaciesList, "Pharmacie")}
+              {renderUserList(pharmaciesList, "Pharmacie", true)}
+            </section>
+
+            {/* SECTION 3 : ADMINISTRATEURS */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 shadow-2xs">
+                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900">Administrateurs</h2>
+                    <p className="text-[11px] sm:text-xs text-slate-500">Comptes d'administration de la plateforme</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold px-3 py-1 bg-purple-50 text-purple-700 rounded-full border border-purple-100">
+                  {adminsList.length}
+                </span>
+              </div>
+
+              {renderUserList(adminsList, "Administrateur", false)}
             </section>
 
           </div>

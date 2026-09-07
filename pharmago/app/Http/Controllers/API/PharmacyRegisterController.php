@@ -251,4 +251,6 @@ class PharmacyRegisterController extends Controller
 
     }
 
+    
+
 }
