@@ -41,6 +41,7 @@ export default defineConfig({
 
     allowedHosts: [
       'unserialised-inartificial-rosamond.ngrok-free.dev',
+      'heaving-paper-wifi.ngrok-free.dev',
     ],
 
     proxy: {

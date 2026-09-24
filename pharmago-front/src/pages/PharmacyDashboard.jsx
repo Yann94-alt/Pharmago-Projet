@@ -19,6 +19,8 @@ import {
   FiWifiOff,
   FiRefreshCw,
   FiArrowRight,
+  FiPackage,
+  FiSearch,
 } from 'react-icons/fi'
 
 export default function PharmacyDashboard() {
@@ -30,6 +32,7 @@ export default function PharmacyDashboard() {
   const [success, setSuccess] = useState(null)
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false)
   const [reservations, setReservations] = useState([])
+  const [search, setSearch] = useState('')
 
   const [stats, setStats] = useState({
     enAttente: 0,
@@ -123,7 +126,7 @@ export default function PharmacyDashboard() {
 
       if (statut === 'en_attente') enAttente++
       if (statut === 'acceptee' || statut === 'confirmee') enCours++
-      if (statut === 'prete') {
+      if (statut === 'prete' || statut === 'remise') {
         terminees++
         totalTraite++
       }
@@ -155,6 +158,21 @@ export default function PharmacyDashboard() {
     }
   }
 
+  const handleMarquerRemise = async (id) => {
+    try {
+      setError(null)
+      setSuccess(null)
+
+      await api.put(`/pharmacies/reservations/${id}/remise`)
+
+      setSuccess('La commande a été marquée comme remise. Le patient a été notifié.')
+
+      await fetchDashboardData(true)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    }
+  }
+
   const getPatientName = (reservation) => {
     const patient = reservation?.user
     if (!patient) return 'Patient inconnu'
@@ -174,6 +192,17 @@ export default function PharmacyDashboard() {
       year: 'numeric',
     })
   }
+
+  const filteredReservations = reservations.filter((res) => {
+    const term = search.trim().toLowerCase()
+    if (!term) return true
+
+    const nom = getPatientName(res).toLowerCase()
+    const telephone = (res?.user?.telephone || '').toLowerCase().replace(/\s+/g, '')
+    const termSansEspaces = term.replace(/\s+/g, '')
+
+    return nom.includes(term) || telephone.includes(termSansEspaces)
+  })
 
   if (loading) return <Loader />
 
@@ -279,18 +308,29 @@ export default function PharmacyDashboard() {
                 </div>
                 <div className="self-start sm:self-auto inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-100 rounded-xl">
                   <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase">Total</span>
-                  <span className="font-black text-slate-900">{reservations.length}</span>
+                  <span className="font-black text-slate-900">{filteredReservations.length}</span>
                 </div>
+              </div>
+
+              <div className="mt-4 relative">
+                <FiSearch className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher par nom ou numéro de téléphone..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                />
               </div>
             </div>
 
             {/* MOBILE : CARTES */}
             <div className="block lg:hidden p-3 sm:p-5">
-              {reservations.length === 0 ? (
-                <EmptyReservations />
+              {filteredReservations.length === 0 ? (
+                <EmptyReservations isSearch={search.trim().length > 0} />
               ) : (
                 <div className="space-y-3">
-                  {reservations.map((res) => (
+                  {filteredReservations.map((res) => (
                     <ReservationCard
                       key={res.id}
                       reservation={res}
@@ -298,6 +338,7 @@ export default function PharmacyDashboard() {
                       getPatientName={getPatientName}
                       formatDate={formatDate}
                       handleUpdateStatus={handleUpdateStatus}
+                      handleMarquerRemise={handleMarquerRemise}
                     />
                   ))}
                 </div>
@@ -317,14 +358,14 @@ export default function PharmacyDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {reservations.length === 0 ? (
+                  {filteredReservations.length === 0 ? (
                     <tr>
                       <td colSpan="5" className="p-14 text-center">
-                        <EmptyReservations />
+                        <EmptyReservations isSearch={search.trim().length > 0} />
                       </td>
                     </tr>
                   ) : (
-                    reservations.map((res) => (
+                    filteredReservations.map((res) => (
                       <tr key={res.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-3">
@@ -359,6 +400,7 @@ export default function PharmacyDashboard() {
                             reservation={res}
                             navigate={navigate}
                             handleUpdateStatus={handleUpdateStatus}
+                            handleMarquerRemise={handleMarquerRemise}
                           />
                         </td>
                       </tr>
@@ -374,7 +416,7 @@ export default function PharmacyDashboard() {
   )
 }
 
-function ReservationCard({ reservation, navigate, getPatientName, formatDate, handleUpdateStatus }) {
+function ReservationCard({ reservation, navigate, getPatientName, formatDate, handleUpdateStatus, handleMarquerRemise }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -412,6 +454,7 @@ function ReservationCard({ reservation, navigate, getPatientName, formatDate, ha
           reservation={reservation}
           navigate={navigate}
           handleUpdateStatus={handleUpdateStatus}
+          handleMarquerRemise={handleMarquerRemise}
           mobile
         />
       </div>
@@ -419,7 +462,7 @@ function ReservationCard({ reservation, navigate, getPatientName, formatDate, ha
   )
 }
 
-function ReservationActions({ reservation, navigate, handleUpdateStatus, mobile = false }) {
+function ReservationActions({ reservation, navigate, handleUpdateStatus, handleMarquerRemise, mobile = false }) {
   return (
     <div className={`flex ${mobile ? 'flex-col' : 'items-center justify-end'} gap-2`}>
       <button
@@ -452,11 +495,24 @@ function ReservationActions({ reservation, navigate, handleUpdateStatus, mobile 
       )}
 
       {reservation?.statut === 'prete' && (
-        <span className={`inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold ${
+        <button
+          type="button"
+          onClick={() => handleMarquerRemise(reservation.id)}
+          className={`inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all text-xs font-bold shadow-sm shadow-emerald-600/20 ${
+            mobile ? 'w-full px-4 py-2.5' : 'px-3.5 py-2'
+          }`}
+        >
+          <FiPackage className="w-3.5 h-3.5" />
+          Marquer remise
+        </button>
+      )}
+
+      {reservation?.statut === 'remise' && (
+        <span className={`inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 text-xs font-bold ${
           mobile ? 'w-full px-4 py-2.5' : 'px-3.5 py-2'
         }`}>
           <FiCheckCircle className="w-3.5 h-3.5" />
-          Commande prête
+          Commande remise
         </span>
       )}
 
@@ -504,6 +560,7 @@ function StatusBadge({ statut }) {
     acceptee: { label: 'Proposition disponible', className: 'bg-orange-100 text-orange-800 border-orange-200' },
     confirmee: { label: 'Réservation confirmée', className: 'bg-blue-100 text-blue-800 border-blue-200' },
     prete: { label: 'Prête', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+    remise: { label: 'Remise', className: 'bg-slate-200 text-slate-700 border-slate-300' },
     annulee: { label: 'Annulée', className: 'bg-rose-100 text-rose-800 border-rose-200' },
   }
 
@@ -519,17 +576,19 @@ function StatusBadge({ statut }) {
   )
 }
 
-function EmptyReservations() {
+function EmptyReservations({ isSearch = false }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 sm:py-10">
       <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center mb-4">
         <FiCalendar className="w-6 h-6 sm:w-7 sm:h-7" />
       </div>
       <p className="font-bold text-slate-600 text-sm sm:text-base text-center">
-        Aucune réservation ce mois-ci
+        {isSearch ? 'Aucun résultat trouvé' : 'Aucune réservation ce mois-ci'}
       </p>
       <p className="text-xs sm:text-sm text-slate-400 mt-1 text-center max-w-sm">
-        Les nouvelles réservations apparaîtront automatiquement ici.
+        {isSearch
+          ? 'Vérifie le nom ou le numéro saisi.'
+          : 'Les nouvelles réservations apparaîtront automatiquement ici.'}
       </p>
     </div>
   )

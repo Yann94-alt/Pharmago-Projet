@@ -163,7 +163,7 @@ export default function Medicaments() {
             </h1>
 
             <p className="mt-2 text-sm sm:text-base text-slate-500">
-              Recherchez un produit et consultez instantanément les pharmacies qui l'ont en stock.
+              
             </p>
 
           </div>

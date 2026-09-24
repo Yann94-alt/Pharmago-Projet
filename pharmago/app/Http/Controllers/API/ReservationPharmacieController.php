@@ -722,4 +722,126 @@ class ReservationPharmacieController extends Controller
                 $reservation
         ]);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mettre une réservation à "remise" (retirée par le patient)
+    |--------------------------------------------------------------------------
+    */
+
+    public function marquerRemise(
+        Request $request,
+        Reservation $reservation
+    ) {
+        $user = $request->user();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Vérification pharmacie
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !$user ||
+            $user->role !== 'pharmacie' ||
+            $reservation->pharmacie_id !== $user->pharmacie?->id
+        ) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Action non autorisée.'
+            ], 403);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Vérifier que la commande est bien prête
+        |--------------------------------------------------------------------------
+        */
+
+        if ($reservation->statut !== 'prete') {
+            return response()->json([
+                'status' => false,
+                'message' =>
+                    "La réservation doit être prête avant de pouvoir être marquée comme remise."
+            ], 400);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Passage à REMISE
+        |--------------------------------------------------------------------------
+        */
+
+        $reservation->statut = 'remise';
+
+        $reservation->save();
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔴 ÉVÉNEMENT TEMPS RÉEL — STATUT
+        |--------------------------------------------------------------------------
+        */
+
+        event(
+            new ReservationStatusUpdated(
+                $reservation->fresh()
+            )
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Notification dans l'application
+        |--------------------------------------------------------------------------
+        */
+
+        $notificationPatient = notifications::create([
+            'user_id' =>
+                $reservation->user_id,
+
+            'titre' =>
+                'Commande remise',
+
+            'message' =>
+                'Votre commande a été remise. Merci d’avoir utilisé PharmaGo !',
+
+            'type' =>
+                'reservation',
+
+            'data' => [
+                'reservation_id' =>
+                    $reservation->id,
+
+                'statut' =>
+                    'remise',
+            ]
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔔 BROADCAST TEMPS RÉEL
+        |--------------------------------------------------------------------------
+        */
+
+        event(
+            new NotificationCreated(
+                $notificationPatient
+            )
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Réponse
+        |--------------------------------------------------------------------------
+        */
+
+        return response()->json([
+            'status' => true,
+
+            'message' =>
+                'La commande a été marquée comme remise. Le patient a été notifié.',
+
+            'data' =>
+                $reservation
+        ]);
+    }
 }

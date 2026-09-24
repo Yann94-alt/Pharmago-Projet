@@ -315,6 +315,14 @@ Route::put(
     ]
 )->whereNumber('reservation');
  
+Route::put(
+    '/pharmacies/reservations/{reservation}/remise',
+    [
+        ReservationPharmacieController::class,
+        'marquerRemise'
+    ]
+)->whereNumber('reservation');
+ 
 Route::get(
     '/pharmacies/reservations/{reservation}/documents',
     [
@@ -466,4 +474,3 @@ Route::get(
  
  
 });
- 
