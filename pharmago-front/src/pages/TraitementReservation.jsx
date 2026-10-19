@@ -196,7 +196,9 @@ export default function TraitementReservation() {
     }
   ])
 
-  const [montantAssurance, setMontantAssurance] = useState(0)
+  const [pourcentageAssurance, setPourcentageAssurance] = useState(0)
+  // Montant FCFA brut chargé depuis la base, en attente de conversion en % une fois le montant total connu
+  const [montantAssuranceCharge, setMontantAssuranceCharge] = useState(null)
 
   useEffect(() => {
     fetchReservation()
@@ -228,8 +230,13 @@ export default function TraitementReservation() {
         )
       }
 
-      if (data.montant_assurance !== undefined) {
-        setMontantAssurance(data.montant_assurance || 0)
+      if (data.montant_assurance) {
+        // On ne garde de côté que s'il y a un VRAI montant déjà enregistré
+        // (> 0). Sinon (réservation neuve, montant_assurance = 0/null),
+        // on ne touche pas au % : ça laisse le pharmacien saisir librement
+        // sans qu'un re-calcul vienne l'écraser à 0 pendant qu'il coche
+        // "sur bon" sur ses lignes.
+        setMontantAssuranceCharge(data.montant_assurance)
       }
 
     } catch (err) {
@@ -326,8 +333,39 @@ export default function TraitementReservation() {
   }, 0)
 }, [medicaments])
 
+  // Montant concerné par la prise en charge assurance : UNIQUEMENT
+  // les médicaments cochés "sur bon". Le reste (hors bon) n'est jamais
+  // couvert par le %, quel que soit le pourcentage saisi.
+  const montantSurBon = useMemo(() => {
+    return medicaments.reduce((acc, med) => {
+      if (!med.disponible || !med.sur_bon) {
+        return acc
+      }
 
-  const assurance = parseFloat(montantAssurance) || 0
+      const qte = parseFloat(med.quantite) || 0
+      const prix = parseFloat(med.prix) || 0
+
+      return acc + qte * prix
+    }, 0)
+  }, [medicaments])
+
+  // Convertit en % le montant FCFA déjà enregistré pour cette réservation,
+  // une seule fois, dès que le montant "sur bon" des médicaments est connu.
+  useEffect(() => {
+    if (montantAssuranceCharge !== null && montantSurBon > 0) {
+      setPourcentageAssurance(
+        Math.min(100, Math.round((montantAssuranceCharge / montantSurBon) * 10000) / 100)
+      )
+      setMontantAssuranceCharge(null)
+    }
+  }, [montantAssuranceCharge, montantSurBon])
+
+  const pourcentage = Math.min(100, Math.max(0, parseFloat(pourcentageAssurance) || 0))
+
+  // La prise en charge ne s'applique QUE sur le montant "sur bon".
+  // Ex : 50% sur 1000F sur bon + 1000F hors bon => 1000×0,5 + 1000 = 1500F reste à charge,
+  // et non (1000+1000)×0,5.
+  const assurance = (montantSurBon * pourcentage) / 100
 
   const restePatient = useMemo(() => {
     return Math.max(0, montantTotal - assurance)
@@ -544,7 +582,7 @@ export default function TraitementReservation() {
   const user = reservation.user
   const beneficiaire = reservation.beneficiaire
   const ordonnanceDisponible = !!documents?.ordonnance
-  const assuranceDisponible = !!documents?.carte_assurance
+  const assuranceDisponible = !!documents?.assurance
   const bonDisponible = !!documents?.bon
 
   // Vérification basée sur le statut réel de la base de données
@@ -569,10 +607,7 @@ export default function TraitementReservation() {
                 <FiArrowLeft />
               </button>
               <div>
-                <p className={`text-[11px] font-bold uppercase tracking-wider ${INK} opacity-70`}>
-                  Réservation #{reservation.id}
-                </p>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                   Traitement de l'ordonnance
                 </h1>
               </div>
@@ -590,15 +625,7 @@ export default function TraitementReservation() {
         {error && <Alert type="error" message={error} />}
         {success && <Alert type="success" message={success} />}
 
-        {!peutModifier && (
-          <div className="flex items-start gap-3 bg-sky-50 border border-sky-200 text-sky-900 rounded-2xl p-4 text-sm">
-            <FiAlertTriangle className="mt-0.5 shrink-0" />
-            <span>
-              Cette réservation n'est plus en attente (statut actuel : « {badge.label} »). Le formulaire
-              ci-dessous est affiché en lecture seule.
-            </span>
-          </div>
-        )}
+        
 
         {/* PATIENT / BÉNÉFICIAIRE */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -855,16 +882,20 @@ export default function TraitementReservation() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Montant pris en charge par l'Assurance (FCFA)
+                    Prise en charge par l'Assurance (%)
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={montantAssurance}
-                    onChange={(e) => setMontantAssurance(e.target.value)}
-                    className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm tabular-nums outline-none transition ${RING}`}
-                  />
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={pourcentageAssurance}
+                      onChange={(e) => setPourcentageAssurance(e.target.value)}
+                      className={`w-full bg-white border border-slate-200 rounded-xl pl-3 pr-9 py-2.5 text-sm tabular-nums outline-none transition ${RING}`}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-bold">%</span>
+                  </div>
                 </div>
                 <div className="flex flex-col justify-end">
                   <div className="text-right space-y-1">

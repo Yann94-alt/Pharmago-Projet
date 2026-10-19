@@ -126,12 +126,16 @@ class ReservationPatientController extends Controller
         $cheminCarteAssurance = null;
 
         if ($request->hasFile('carte_assurance')) {
+            // Le patient a envoyé une carte spécifique pour cette réservation
             $cheminCarteAssurance = $request
                 ->file('carte_assurance')
                 ->store(
                     'cartes_assurance_reservations',
                     'local'
                 );
+        } elseif ($user->carte_assurance) {
+            // Sinon, on réutilise automatiquement la carte CMU fournie à l'inscription
+            $cheminCarteAssurance = $user->carte_assurance;
         }
 
         /*

@@ -128,7 +128,7 @@ export default function Reservations() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-base font-bold text-slate-900">
-                        Réservation #{r.id}
+                        Réservation
                       </span>
                       
                       {/* Entité associée (Patient ou Pharmacie) */}

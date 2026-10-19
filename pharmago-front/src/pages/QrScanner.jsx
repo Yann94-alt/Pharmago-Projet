@@ -71,7 +71,7 @@ export default function QrScanner() {
 
       {reservation && (
         <div className="card space-y-3">
-          <h2 className="font-display text-lg font-semibold text-brand-800">Réservation #{reservation.id}</h2>
+          <h2 className="font-display text-lg font-semibold text-brand-800">Réservation vérifiée</h2>
           {reservation.user && (
             <p className="text-sm text-brand-700">
               Patient : <span className="font-medium">{reservation.user.prenom} {reservation.user.nom}</span>

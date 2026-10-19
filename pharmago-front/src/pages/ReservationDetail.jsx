@@ -100,7 +100,7 @@ export default function ReservationDetail() {
       <div className="card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-brand-800">Réservation #{reservation.id}</h1>
+            <h1 className="text-xl font-bold text-brand-800">Ma réservation</h1>
             <p className="text-sm text-brand-500">
               Créée le {new Date(reservation.created_at).toLocaleString('fr-FR')}
             </p>
